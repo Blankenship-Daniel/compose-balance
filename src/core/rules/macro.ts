@@ -1,19 +1,10 @@
 import { isVerseChorus } from "../classify.ts";
-import {
-  bridgeStart,
-  CORPUS_SOURCE,
-  formatShare,
-  MIN_SAMPLE,
-  type Step,
-  transitionCount,
-  transitionShare,
-  usualNext,
-} from "../corpus.ts";
+import { type Corpus, corpusFor, formatShare, MIN_SAMPLE, type Step } from "../corpus.ts";
 import { DEFAULT_BARS, NAME } from "../parse.ts";
 import { pluralName } from "./phrase.ts";
 import { insertAt, lastBodyIndex, move, setBars } from "../fixes.ts";
 import { formatSeconds, secondsFor, startBar, totalBars, typicalBars } from "../stats.ts";
-import type { Finding, FormType, Options, Role, Section } from "../types.ts";
+import type { Finding, Fix, FormType, Options, Role, Section } from "../types.ts";
 
 const TIME_SOURCE =
   "Léveillé Gauvin, Musicae Scientiae 22(3) (2018); Hit Songs Deconstructed trend reports (first chorus ~30–45 s in recent hits); Montecchio, Roy & Pachet, PLOS ONE 15(9) (2020) (Spotify skips follow song structure)";
@@ -57,20 +48,23 @@ function firstChorusDelay(sections: Section[], type: FormType, opts: Options): F
 }
 
 /** R8: how long the listener waits for the first chorus, and how long the intro is. */
-function timeToChorus(sections: Section[], type: FormType, opts: Options): Finding[] {
+function timeToChorus(sections: Section[], type: FormType, opts: Options, corpus: Corpus): Finding[] {
   const findings: Finding[] = [];
   const introIdx = sections[0]?.role === "intro" ? 0 : -1;
   if (introIdx === 0) {
     const intro = sections[0]!;
     const sec = secondsFor(intro.bars, opts);
-    if (intro.bars > 8 || sec > 20) {
+    // Longer than 9 in 10 of the era's intros. At a slow tempo even a 4-bar intro can run that
+    // long, and there is no shorter phrase to cut it to: then no note.
+    const { p50, p90 } = corpus.introSeconds;
+    if (sec > p90 && intro.bars > 4) {
       findings.push({
         rule: "R8",
         severity: "info",
         basis: "convention",
         title: `Long intro (${intro.bars} bars, ${formatSeconds(sec)})`,
-        why: "Intros on hit records shrank from about 20 seconds in the mid-1980s to about 5 seconds by 2015. A long intro is a stylistic choice, but it delays everything that follows.",
-        source: TIME_SOURCE,
+        why: `In the ${corpus.name} corpus, 9 in 10 intros last under ${formatSeconds(p90)} (median ${formatSeconds(p50)}). A long intro is a stylistic choice, but it delays everything that follows.`,
+        source: `${TIME_SOURCE}; ${corpus.source}`,
         sectionIndexes: [0],
         fixes: [{ label: "Shorten the intro to 4 bars", sections: setBars(sections, [0], 4) }],
       });
@@ -79,19 +73,50 @@ function timeToChorus(sections: Section[], type: FormType, opts: Options): Findi
   if (!isVerseChorus(type)) return findings;
   const first = sections.findIndex((s) => s.role === "chorus");
   const sec = secondsFor(startBar(sections, first), opts);
-  if (sec > 45) {
+  // Later than 3 in 4 of the era's hits is worth a note; later than 9 in 10, a warning.
+  const { p75, p90 } = corpus.firstChorusSeconds;
+  if (sec > p75) {
+    // A fix earns its place by clearing the note: under p90 for a warning, under p75 for a note.
+    const limit = sec > p90 ? p90 : p75;
+    const clears = (fix: Fix) => secondsFor(startBar(fix.sections, fix.sections.findIndex((s) => s.role === "chorus")), opts) <= limit;
+    // The long-intro note already offers shortening the intro on its own.
+    const introNoted = findings.length > 0;
     findings.push({
       rule: "R8",
-      severity: sec > 60 ? "warning" : "info",
+      severity: sec > p90 ? "warning" : "info",
       basis: "convention",
       title: `First chorus arrives at ${formatSeconds(sec)}`,
-      why: `Recent hit songs reach the chorus in about 30–45 seconds. At ${opts.bpm} bpm this one takes ${formatSeconds(sec)}. That is fine for slower or album-oriented songs; for a radio-style pop song, shorten what comes before it.`,
-      source: TIME_SOURCE,
+      why: `In the ${corpus.name} corpus, the first chorus arrives by ${formatSeconds(p75)} in 3 of 4 songs and by ${formatSeconds(p90)} in 9 of 10 (median ${formatSeconds(corpus.firstChorusSeconds.p50)}). At ${opts.bpm} bpm this one takes ${formatSeconds(sec)}. That is fine for slower or album-oriented songs; for a radio-style pop song, shorten what comes before it.`,
+      source: `${TIME_SOURCE}; ${corpus.source}`,
       sectionIndexes: [first],
-      fixes: [],
+      fixes: earlierChorus(sections, first, clears).filter((f) => !(introNoted && f.label === SHORTEN_INTRO)),
     });
   }
   return findings;
+}
+
+const SHORTEN_INTRO = "Shorten the intro to 4 bars";
+
+/**
+ * Ways to bring the first chorus forward that do (`clears`): a 4-bar intro, or halving the longest
+ * verse before it; only when neither does on its own, both at once.
+ */
+function earlierChorus(sections: Section[], first: number, clears: (fix: Fix) => boolean): Fix[] {
+  const fixes: Fix[] = [];
+  const longIntro = sections[0]?.role === "intro" && sections[0].bars > 4;
+  if (longIntro) fixes.push({ label: SHORTEN_INTRO, sections: setBars(sections, [0], 4) });
+  const verses = sections.slice(0, first).flatMap((s, i) => (s.role === "verse" && s.bars >= 16 ? [i] : []));
+  const longest = verses.sort((a, b) => sections[b]!.bars - sections[a]!.bars)[0];
+  if (longest !== undefined) {
+    const half = sections[longest]!.bars / 2;
+    // Halving keeps the grid only when it leaves whole 4-bar phrases.
+    if (half % 4 === 0) {
+      fixes.push({ label: `Halve the verse to ${half} bars`, sections: setBars(sections, [longest], half) });
+      if (longIntro && !fixes.some(clears))
+        return [{ label: `Shorten the intro to 4 bars and halve the verse to ${half}`, sections: setBars(setBars(sections, [0], 4), [longest], half) }].filter(clears);
+    }
+  }
+  return fixes.filter(clears);
 }
 
 /** A chorus that only appears once never gets to return. */
@@ -229,13 +254,14 @@ function strophicContrast(sections: Section[], type: FormType): Finding[] {
 }
 
 /** R10 (info): bridge placement, against where corpus bridges start (10th–90th percentile). */
-function bridgePosition(sections: Section[], type: FormType): Finding[] {
+function bridgePosition(sections: Section[], type: FormType, corpus: Corpus): Finding[] {
   if (!isVerseChorus(type)) return [];
   const bridge = sections.findIndex((s) => s.role === "bridge");
   if (bridge < 0) return [];
   const chorusesBefore = sections.slice(0, bridge).filter((s) => s.role === "chorus").length;
   if (chorusesBefore < 2) return []; // contrastAfterRepetition covers it
   const pct = Math.round((startBar(sections, bridge) / totalBars(sections)) * 100);
+  const { bridgeStart } = corpus;
   const [low, high] = [Math.round(bridgeStart.p10 * 100), Math.round(bridgeStart.p90 * 100)];
   if (pct >= low && pct <= high) return [];
   return [
@@ -244,8 +270,8 @@ function bridgePosition(sections: Section[], type: FormType): Finding[] {
       severity: "info",
       basis: "convention",
       title: `Bridge starts ${pct}% of the way through`,
-      why: `In the Billboard corpus, 8 in 10 bridges that follow two choruses start between ${low}% and ${high}% of the way in (median ${Math.round(bridgeStart.p50 * 100)}%); post-2000 pop puts them nearer two-thirds. Claims of an ideal golden-ratio point aren't backed by pop research, so treat this as a loose guide.`,
-      source: `${CORPUS_SOURCE}; Schwitzgebel, MTO 31.1 (2025)`,
+      why: `In the ${corpus.name} corpus, 8 in 10 bridges that follow two choruses start between ${low}% and ${high}% of the way in (median ${Math.round(bridgeStart.p50 * 100)}%). Claims of an ideal golden-ratio point aren't backed by pop research, so treat this as a loose guide.`,
+      source: `${corpus.source}; Schwitzgebel, MTO 31.1 (2025)`,
       sectionIndexes: [bridge],
       fixes: [],
     },
@@ -253,17 +279,19 @@ function bridgePosition(sections: Section[], type: FormType): Finding[] {
 }
 
 /** R12 (info): overall length. Short forms are not flagged: most sketches are partial songs. */
-function totalLength(sections: Section[], opts: Options): Finding[] {
+function totalLength(sections: Section[], opts: Options, corpus: Corpus): Finding[] {
   const sec = secondsFor(totalBars(sections), opts);
-  if (sec <= 330) return [];
+  // Longer than 9 in 10 of the era's songs.
+  const { p50, p90 } = corpus.songSeconds;
+  if (sec <= p90) return [];
   return [
     {
       rule: "R12",
       severity: "info",
       basis: "convention",
       title: `Total length ${formatSeconds(sec)}`,
-      why: "Most pop songs run 2:30–4:00. Longer forms work, but each extra section needs a reason to exist.",
-      source: "Convention",
+      why: `In the ${corpus.name} corpus, 9 in 10 songs run under ${formatSeconds(p90)} (median ${formatSeconds(p50)}). Longer forms work, but each extra section needs a reason to exist.`,
+      source: corpus.source,
       sectionIndexes: [],
       fixes: [],
     },
@@ -283,39 +311,41 @@ function after(next: Step): string {
   return next === "end" ? "end the song" : `lead into ${aRole(next as Role)}`;
 }
 
-function transitionNote(from: Role | "start", to: Role | "end"): { title: string; why: string } {
-  const share = formatShare(transitionShare(from, to));
-  const usual = usualNext(from);
+function transitionNote(corpus: Corpus, from: Role | "start", to: Role | "end"): { title: string; why: string } {
+  const share = formatShare(corpus.transitionShare(from, to));
+  const usual = corpus.usualNext(from);
   const most = `(${formatShare(usual.share)})`;
   const tail = "A rare hand-off can be striking, so keep it if it's on purpose.";
   if (from === "start") {
     const opener = aRole(to as Role); // a song never opens on its end
     return {
       title: `Opening with ${opener} is rare`,
-      why: `In the Billboard corpus, ${share} of songs open with ${opener}; most open with ${aRole(usual.to as Role)} ${most}. ${tail}`,
+      why: `In the ${corpus.name} corpus, ${share} of songs open with ${opener}; most open with ${aRole(usual.to as Role)} ${most}. ${tail}`,
     };
   }
   const plural = pluralName(from);
   if (to === "end")
     return {
       title: `Ending on ${aRole(from)} is rare`,
-      why: `In the Billboard corpus, ${share} of ${plural} end the song; most ${after(usual.to)} ${most}. ${tail}`,
+      why: `In the ${corpus.name} corpus, ${share} of ${plural} end the song; most ${after(usual.to)} ${most}. ${tail}`,
     };
   return {
     title: `${NAME[from]} into ${NAME[to].toLowerCase()} is rare`,
-    why: `In the Billboard corpus, ${share} of ${plural} go straight to ${aRole(to)}; most ${after(usual.to)} ${most}. ${tail}`,
+    why: `In the ${corpus.name} corpus, ${share} of ${plural} go straight to ${aRole(to)}; most ${after(usual.to)} ${most}. ${tail}`,
   };
 }
 
 /** R11 (info): hand-offs that hit songs almost never make, from the corpus transition counts. */
-function rareTransitions(sections: Section[]): Finding[] {
+function rareTransitions(sections: Section[], corpus: Corpus): Finding[] {
   if (sections.length === 0) return [];
   const steps: Step[] = ["start", ...sections.map((s) => s.role), "end"];
   // Hand-off k is steps[k] → steps[k + 1]. Section i is steps[i + 1], so hand-off k is boundary k - 1.
   const byPair = new Map<string, number[]>();
   for (let k = 0; k + 1 < steps.length; k++) {
     const [from, to] = [steps[k]!, steps[k + 1]!];
-    if (transitionCount(from) < MIN_SAMPLE || transitionShare(from, to) >= RARE_TRANSITION) continue;
+    // A role the corpus barely has (codas in Harmonix) is rare to reach by construction, not by taste.
+    const thin = corpus.transitionCount(from) < MIN_SAMPLE || (to !== "end" && to !== "start" && corpus.sampleSize(to) < MIN_SAMPLE);
+    if (thin || corpus.transitionShare(from, to) >= RARE_TRANSITION) continue;
     byPair.set(`${from}>${to}`, [...(byPair.get(`${from}>${to}`) ?? []), k]);
   }
   return [...byPair].map(([pair, ks]): Finding => {
@@ -324,26 +354,43 @@ function rareTransitions(sections: Section[]): Finding[] {
       rule: "R11",
       severity: "info",
       basis: "convention",
-      ...transitionNote(from, to),
-      source: CORPUS_SOURCE,
+      ...transitionNote(corpus, from, to),
+      source: corpus.source,
       sectionIndexes: [...new Set(ks.flatMap((k) => [k - 1, k].filter((i) => i >= 0 && i < sections.length)))],
       boundaries: ks.map((k) => k - 1).filter((b) => b >= 0 && b < sections.length - 1),
-      fixes: [],
+      fixes: bridgeTheGap(sections, corpus, from, to, ks),
     };
   });
 }
 
+/**
+ * Puts what usually follows `from` into each rare hand-off, when the corpus
+ * says that section leads on to `to` often enough itself.
+ */
+function bridgeTheGap(sections: Section[], corpus: Corpus, from: Role | "start", to: Role | "end", ks: number[]): Fix[] {
+  const { to: usual } = corpus.usualNext(from);
+  if (usual === "end" || usual === "start" || usual === to) return [];
+  if (corpus.transitionShare(usual, to) < RARE_TRANSITION) return [];
+  const added: Section = { role: usual, bars: typicalBars(sections, usual) ?? DEFAULT_BARS[usual], intentional: false };
+  // Hand-off k sits just before section k; insert from the back so earlier indexes hold.
+  const next = [...ks].sort((a, b) => b - a).reduce((acc, k) => insertAt(acc, k, added), sections);
+  const what = aRole(usual);
+  const label = from === "start" ? `Open with ${what}` : to === "end" ? `Add ${what} at the end` : `Put ${what} between them`;
+  return [{ label, sections: next }];
+}
+
 export function macroRules(sections: Section[], type: FormType, opts: Options): Finding[] {
+  const corpus = corpusFor(opts.era);
   const findings = [
     ...firstChorusDelay(sections, type, opts),
     ...chorusReturns(sections, type),
     ...contrastAfterRepetition(sections, type),
-    ...timeToChorus(sections, type, opts),
+    ...timeToChorus(sections, type, opts, corpus),
     ...strophicContrast(sections, type),
-    ...bridgePosition(sections, type),
-    ...totalLength(sections, opts),
+    ...bridgePosition(sections, type, corpus),
+    ...totalLength(sections, opts, corpus),
   ];
   // A rare hand-off another rule already explains (a bridge that ends the song) needs no second note.
   const covered = new Set(findings.flatMap((f) => f.sectionIndexes));
-  return [...findings, ...rareTransitions(sections).filter((f) => !f.sectionIndexes.some((i) => covered.has(i)))];
+  return [...findings, ...rareTransitions(sections, corpus).filter((f) => !f.sectionIndexes.some((i) => covered.has(i)))];
 }

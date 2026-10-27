@@ -1,12 +1,13 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { HexSky } from "@harmonics/lattice-ui";
 import type { LatticeBoard } from "@harmonics/lattice-ui/board";
-import { BLOCK_OF, type Pt, threadPath } from "../core/blocks.ts";
+import { BLOCK_OF, centroid, type Pt, threadPath } from "../core/blocks.ts";
 import {
   barPartsOf,
   barsOf,
   bottomOf,
   carryRoles,
+  connected,
   cutThrough,
   dropBar,
   finishPhrase,
@@ -17,8 +18,10 @@ import {
   keysOf,
   partPolygon,
   pullBar,
+  pullOneBar,
   ROW,
   SHARED,
+  sectionIndexAt,
   sectionParts,
   songOf,
   splitBar,
@@ -26,14 +29,14 @@ import {
   TONE,
   withBars,
 } from "../core/lattice.ts";
-import { outlineOf, pieceOf } from "@harmonics/lattice-ui/hexes";
+import { outlineOf, type Part, pieceOf } from "@harmonics/lattice-ui/hexes";
 import { CODE, NAME } from "../core/parse.ts";
 import type { Finding, Role, Section, Severity } from "../core/types.ts";
 import { NoteCard } from "./Findings.tsx";
 import { Mark, toPoints } from "./marks.tsx";
 
 const COMMON: Role[] = ["intro", "verse", "prechorus", "chorus", "bridge", "outro"];
-const MORE: Role[] = ["solo", "instrumental", "interlude", "transition", "coda"];
+const MORE: Role[] = ["postchorus", "solo", "instrumental", "interlude", "transition", "coda"];
 const RANK: Record<Severity, number> = { problem: 3, warning: 2, info: 1 };
 /** The kit's lattice is drawn in pixels at scale 1: a block edge (a triangle's side) is 44 of them. */
 const EDGE = 44;
@@ -112,6 +115,13 @@ export function LatticeTable(props: Props) {
   const pinsRef = useRef<Pin[]>([]);
   // A bar being dragged in from the tray, and where the pointer is.
   const [adding, setAdding] = useState<{ role: Role; x: number; y: number } | null>(null);
+  // The section picked to act on (by tap, click or its label): its piece and colour, so it stays
+  // picked while the board moves, turns or glues that piece. The tray shows its actions. `at` is
+  // where it was picked, in the board's pixels, to tell apart two sections of one type glued into
+  // one piece.
+  const [picked, setPicked] = useState<{ pieceId: string; tone: number; at: Pt } | null>(null);
+  // The section under the mouse, or its ghost: an unflagged section shows its ghost only then.
+  const [hovered, setHovered] = useState(-1);
 
   useLayoutEffect(() => {
     const el = wrap.current;
@@ -121,7 +131,8 @@ export function LatticeTable(props: Props) {
     return () => ro.disconnect();
   }, []);
   // Pixels per block edge: big enough to grab, small enough for a song to fit a laptop screen.
-  const L = px < 520 ? 24 : 32;
+  const phone = px < 520;
+  const L = phone ? 20 : 32;
   const scale = L / EDGE;
   const gutter = GUTTER * L;
   const boardW = Math.max(8 * L, px - gutter - PAD);
@@ -293,6 +304,13 @@ export function LatticeTable(props: Props) {
     setShelfOpen(true);
     shelfRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [props.openShelf]);
+  // Escape lets go of the picked section.
+  useEffect(() => {
+    if (!picked) return;
+    const key = (e: KeyboardEvent) => e.key === "Escape" && setPicked(null);
+    document.addEventListener("keydown", key);
+    return () => document.removeEventListener("keydown", key);
+  }, [picked]);
   // An open note closes on Escape or on a click anywhere outside it and its pin.
   useEffect(() => {
     if (!open) return;
@@ -406,7 +424,10 @@ export function LatticeTable(props: Props) {
     if (!from || !to) return null;
     const top = order[s + 1]!.box.top / EDGE;
     const bottom = order[s]!.box.bottom / EDGE;
-    return threadPath(from, to, top, top < bottom - 0.3);
+    const sameRow = top < bottom - 0.3;
+    const path = threadPath(from, to, top, sameRow);
+    // threadPath can wrap on the same row too (when the next section starts to the left); it returns ends only then.
+    return { ...path, wraps: path.ends !== undefined };
   });
 
   // Findings pinned where they apply: on the hand-off they're about, or at the section's top
@@ -446,7 +467,35 @@ export function LatticeTable(props: Props) {
   const pins = [...pinMap.values()].sort((a, b) => RANK[b.severity] - RANK[a.severity] || a.at.y - b.at.y || a.at.x - b.at.x);
   pinsRef.current = pins;
   const openPin = pins.find((p) => p.key === open);
-  const pinned = openPin?.sections ?? [];
+  // Of the sections in the picked piece and colour, the one nearest where it was picked.
+  const pickedIndex = picked
+    ? order.reduce((best, s, i) => {
+        if (s.pieceId !== picked.pieceId || s.parts[0]!.tone !== picked.tone) return best;
+        const d = (k: number) => Math.hypot((order[k]!.box.left + order[k]!.box.right) / 2 - picked.at.x, (order[k]!.box.top + order[k]!.box.bottom) / 2 - picked.at.y);
+        return best < 0 || d(i) < d(best) ? i : best;
+      }, -1)
+    : -1;
+  // From the layout, not the song: the song can lag the layout by a render (after a drop or a cut).
+  const pickedSec = pickedIndex >= 0 ? order[pickedIndex] : undefined;
+  const pickedBars = pickedSec ? Math.round(pickedSec.bars) : 0;
+  const pinned = [...(openPin?.sections ?? []), ...(pickedIndex >= 0 ? [pickedIndex] : [])];
+
+  /**
+   * One of the board's own keys (R turn, G glue, Shift+G break apart) sent to the picked
+   * section's piece, as if it had the keyboard: the same actions for a finger as for keys.
+   */
+  const boardKey = (key: string, shiftKey = false) => {
+    const sec = order[pickedIndex];
+    const board = boardRef.current;
+    if (!sec || !board) return;
+    const r = board.getBoundingClientRect();
+    const mid = centroid(partPolygon(sec.parts[0]!));
+    const el = board.shadowRoot
+      ?.elementsFromPoint(r.left + mid.x * scale, r.top + mid.y * scale)
+      .find((x) => x.closest(".piece"))
+      ?.closest(".piece");
+    el?.dispatchEvent(new KeyboardEvent("keydown", { key, shiftKey, bubbles: true, composed: true, cancelable: true }));
+  };
 
   /** A new section of `role` laid out under everything, for adding from the keyboard. */
   function addSection(role: Role) {
@@ -467,6 +516,14 @@ export function LatticeTable(props: Props) {
           label="The song's sections as pieces: Tab to a piece, arrows move it, R turns it, G glues it to what it touches, Shift+G breaks it apart, Delete throws it away"
           style={{ left: gutter, top: TOP, width: boardW, height: boardH }}
           onPointerDown={() => setAiming(true)}
+          onPointerMove={(e) => {
+            if (e.pointerType !== "mouse") return;
+            const r = boardRef.current?.getBoundingClientRect();
+            if (!r) return;
+            const at = { x: (e.clientX - r.left) / scale, y: (e.clientY - r.top) / scale };
+            setHovered(sectionIndexAt(layout, at));
+          }}
+          onPointerLeave={() => setHovered(-1)}
           onPointerUp={(e) => {
             // The board focuses a piece only by Tab; a piece you click or drag takes the keyboard
             // too, so G, R, the arrows and Delete act on the piece you last touched.
@@ -475,6 +532,17 @@ export function LatticeTable(props: Props) {
               const hit = boardRef.current?.shadowRoot?.elementsFromPoint(x, y).find((el) => el.closest(".piece"));
               (hit?.closest(".piece") as SVGElement | null)?.focus({ preventScroll: true });
             });
+            // The piece under the finger is picked (once the board has settled it), or nothing,
+            // tapping empty sky. A mouse has the keyboard for that, and keeps the tray of shapes.
+            const touch = e.pointerType !== "mouse";
+            setTimeout(() => {
+              const r = boardRef.current?.getBoundingClientRect();
+              if (!r) return;
+              const at = { x: (x - r.left) / scaleRef.current, y: (y - r.top) / scaleRef.current };
+              const s = songOf(layoutRef.current).order[sectionIndexAt(layoutRef.current, at)];
+              if (s && touch) setPicked({ pieceId: s.pieceId, tone: s.parts[0]!.tone, at });
+              else if (!s) setPicked(null);
+            }, 80);
           }}
         />
         <svg className="overlay" viewBox={`0 0 ${W} ${Hh}`} style={{ left: gutter, top: TOP, width: boardW, height: boardH }} aria-hidden={false}>
@@ -498,42 +566,100 @@ export function LatticeTable(props: Props) {
           {threads.map((t, s) => {
             if (!t) return null;
             const hit = handoff.get(s);
+            // On a phone the board is narrow and nearly every hand-off wraps to a new row: those
+            // loops are left out unless they carry a note (the order numbers give the order).
+            if (phone && t.wraps && !hit) return null;
             const state = playing > s + 1 ? "is-played" : playing === s + 1 ? "is-now" : "";
             const kind = hit ? hit.severity : state ? "played" : "plain";
+            // A flagged hand-off opens its note when tapped: hover tooltips don't reach a finger.
+            const pin = hit && pins.find((p) => Math.hypot(p.at.x - t.mid.x, p.at.y - t.mid.y) < 0.05);
+            const label = `${NAME[sections[s]!.role]} into ${NAME[sections[s + 1]!.role].toLowerCase()}`;
+            // A plain wrap is a line break: its two ends, each with a dot where it breaks off, and
+            // no run back across the board. A wrap with a note keeps the whole path for its pin.
+            if (t.wraps && !hit && t.ends) {
+              const cls = ["thread", state].join(" ");
+              return (
+                <g key={`thread-${s}`} className="thread-break">
+                  <title>{label}</title>
+                  <path className={cls} d={t.ends.out} />
+                  <circle className={`thread-dot ${state}`} cx={t.ends.outEnd.x} cy={t.ends.outEnd.y} r={0.1} />
+                  <circle className={`thread-dot ${state}`} cx={t.ends.inStart.x} cy={t.ends.inStart.y} r={0.1} />
+                  <path className={cls} d={t.ends.in} markerEnd={`url(#thread-arrow-${kind})`} />
+                </g>
+              );
+            }
             return (
-              <path key={`thread-${s}`} className={["thread", hit ? `flag-${hit.severity}` : "", state].join(" ")} d={t.d} markerEnd={`url(#thread-arrow-${kind})`}>
-                <title>
-                  {`${NAME[sections[s]!.role]} into ${NAME[sections[s + 1]!.role].toLowerCase()}`}
-                  {hit ? `: ${hit.titles.join("; ")}` : ""}
-                </title>
-              </path>
+              <g key={`thread-${s}`}>
+                <path className={["thread", hit ? `flag-${hit.severity}` : "", state].join(" ")} d={t.d} markerEnd={`url(#thread-arrow-${kind})`}>
+                  <title>
+                    {`${NAME[sections[s]!.role]} into ${NAME[sections[s + 1]!.role].toLowerCase()}`}
+                    {hit ? `: ${hit.titles.join("; ")}` : ""}
+                  </title>
+                </path>
+                {pin && <path className="thread-hit" d={t.d} onClick={() => setOpen(pin.key)} />}
+              </g>
             );
           })}
           {order.map((sec, s) => {
             const severity = flag.get(s);
             const song = sections[s];
             if (!song) return null;
-            const ghosts = ghostsOf(layout, s, width);
+            // A flagged section always shows where its phrase would finish; any other only while
+            // it is in hand (hovered, picked, or its note open), so a short intro the verdict is
+            // happy with doesn't wear a shape bigger than itself.
+            const shown = !aiming && (severity !== undefined || hovered === s || pinned.includes(s));
+            const ghosts = shown ? ghostsOf(layout, s, width) : [];
+            const finished = Math.ceil(song.bars / 4) * 4;
+            // The "+N" sits in the biggest stretch of the ghost, so a ghost split either side of
+            // its section doesn't put it over the section.
+            const biggest = connected(ghosts).reduce<Part[]>((a, b) => (b.length > a.length ? b : a), []);
+            const mid = biggest.length ? centroid(biggest.flatMap((part) => partPolygon(part).map(inEdges))) : null;
             return (
               <g key={`${sec.pieceId}-${s}`} className="section-marks">
-                {ghosts.map((part, k) => (
-                  <polygon
-                    key={`ghost-${k}`}
-                    className={`ghost ${severity ? `flag-${severity}` : ""}`}
-                    points={toPoints(partPolygon(part).map(inEdges))}
+                {ghosts.length > 0 && (
+                  <g
+                    className={`ghost-group ${severity ? `flag-${severity}` : ""}`}
                     onClick={() => apply(finishPhrase(layout, s, width))}
+                    onPointerEnter={() => setHovered(s)}
+                    onPointerLeave={() => setHovered(-1)}
                   >
-                    <title>{`Finish the phrase: ${Math.ceil(song.bars / 4) * 4} bars`}</title>
-                  </polygon>
-                ))}
+                    <title>{`Finish the phrase: ${song.bars} bars to ${finished}`}</title>
+                    {ghosts.map((part, k) => (
+                      <polygon key={`ghost-${k}`} className="ghost" points={toPoints(partPolygon(part).map(inEdges))} />
+                    ))}
+                    {/* One dashed edge round each stretch, not one round every triangle. */}
+                    {connected(ghosts).map((group, k) => (
+                      <path key={`ghost-edge-${k}`} className="ghost-edge" d={sidesPath(outlineOf(pieceOf("ghost", group)))} />
+                    ))}
+                    {mid && (
+                      <text className="ghost-label" x={mid.x} y={mid.y} textAnchor="middle" dominantBaseline="central">
+                        {`+${finished - song.bars}`}
+                      </text>
+                    )}
+                  </g>
+                )}
                 <path
                   className={[
                     "section-outline",
+                    // A rarer section's pieces are white on the board: its edge carries its colour,
+                    // as its hollow shape in the tray does.
+                    BLOCK_OF[song.role].hollow ? `is-hollow block-${BLOCK_OF[song.role].shape}` : "",
                     severity ? `flag-${severity}` : "",
                     highlight.includes(s) || pinned.includes(s) ? "is-highlighted" : "",
                     s === playing ? "is-playing" : "",
                   ].join(" ")}
                   d={sidesPath(outlineOfSection(sec))}
+                />
+                {/* A finger-sized target round the label: tap it to pick the section. */}
+                <rect
+                  className="label-hit"
+                  x={sec.box.left / EDGE - 0.15}
+                  // Ending above the section's top, clear of its pieces (the board draws them lifted
+                  // a little), so a press on a piece always reaches the piece.
+                  y={sec.box.top / EDGE - 0.3 - 44 / L}
+                  width={Math.max(44 / L, 2.6)}
+                  height={44 / L}
+                  onClick={() => setPicked({ pieceId: sec.pieceId, tone: sec.parts[0]!.tone, at: centroid(partPolygon(sec.parts[0]!)) })}
                 />
                 <text
                   id={`section-${s}`}
@@ -638,10 +764,33 @@ export function LatticeTable(props: Props) {
           />
         )}
       </div>
-      <div className="tray" ref={tray}>
-        {[...COMMON, ...(showMore ? MORE : [])].map((role) => (
+      <div className={`tray ${pickedSec ? "is-actions" : ""}`} ref={tray}>
+        {pickedSec ? (
+          // The picked section's actions, where the thumb is: the board's keys (R, G, Shift+G)
+          // and the label's (+, −, Delete, Enter) for a finger.
+          <SectionActions
+            name={`${NAME[pickedSec.role]}, ${pickedBars} ${pickedBars === 1 ? "bar" : "bars"}`}
+            bars={pickedBars}
+            onTurn={() => boardKey("r")}
+            onGlue={() => boardKey("g")}
+            onBreak={() => boardKey("G", true)}
+            onPull={() => apply(pullOneBar(layout, pickedIndex, width))}
+            onShorter={() => apply(withBars(layout, pickedIndex, pickedBars - 1, width))}
+            onLonger={() => apply(withBars(layout, pickedIndex, Math.min(64, pickedBars + 1), width))}
+            onPlay={() => starts[pickedIndex] !== undefined && props.onPlayFrom(starts[pickedIndex]!)}
+            onRemove={() => {
+              apply(withBars(layout, pickedIndex, 0, width));
+              setPicked(null);
+            }}
+            onClose={() => setPicked(null)}
+          />
+        ) : (
+        <>
+        {[...COMMON, ...(showMore ? MORE : [])].map((role, k) => (
+          <Fragment key={role}>
+          {/* The rarer, hollow shapes start a row of their own. */}
+          {k === COMMON.length && <span className="tray-break" aria-hidden />}
           <button
-            key={role}
             className="tray-block"
             aria-label={`Add a bar of ${NAME[role].toLowerCase()}`}
             title={`${NAME[role]}: drag onto the sky. Each shape is one bar; drop it against a ${NAME[role].toLowerCase()} to add to it.`}
@@ -658,6 +807,7 @@ export function LatticeTable(props: Props) {
             <Mark role={role} box={26} />
             <span>{NAME[role]}</span>
           </button>
+          </Fragment>
         ))}
         <button className="add-more" onClick={() => setShowMore((v) => !v)} aria-expanded={showMore}>
           {showMore ? "Fewer" : "More…"}
@@ -666,6 +816,8 @@ export function LatticeTable(props: Props) {
           <button className="tidy" onClick={props.onTidy} title="Lay every section out again, neatly, in song order. Glued pieces come apart. Undo puts them back.">
             Tidy up
           </button>
+        )}
+        </>
         )}
       </div>
       {adding && (
@@ -687,6 +839,54 @@ export function LatticeTable(props: Props) {
           </div>
         </details>
       )}
+    </div>
+  );
+}
+
+/** The picked section's actions, in the tray: what the keyboard does, for a finger. */
+function SectionActions(props: {
+  name: string;
+  bars: number;
+  onTurn(): void;
+  onGlue(): void;
+  onBreak(): void;
+  onPull(): void;
+  onShorter(): void;
+  onLonger(): void;
+  onPlay(): void;
+  onRemove(): void;
+  onClose(): void;
+}) {
+  return (
+    <div className="section-actions" role="toolbar" aria-label={`${props.name}: actions`}>
+      <span className="section-actions-name">{props.name}</span>
+      <button onClick={props.onShorter} disabled={props.bars < 2} aria-label="One bar shorter" title="One bar shorter (−)">
+        −
+      </button>
+      <button onClick={props.onLonger} aria-label="One bar longer" title="One bar longer (+)">
+        +
+      </button>
+      <button onClick={props.onTurn} title="Turn (R)">
+        Turn
+      </button>
+      <button onClick={props.onGlue} title="Glue to what it touches (G)">
+        Glue
+      </button>
+      <button onClick={props.onBreak} title="Break apart (Shift+G)">
+        Break
+      </button>
+      <button onClick={props.onPull} disabled={props.bars < 2} title="Take one bar off, beside it (or Alt-drag a bar)">
+        Pull a bar
+      </button>
+      <button onClick={props.onPlay} title="Play from here (Enter)">
+        Play here
+      </button>
+      <button onClick={props.onRemove} className="danger" title="Remove the section (Delete)">
+        Remove
+      </button>
+      <button onClick={props.onClose} className="section-actions-close" aria-label="Done" title="Done (Esc)">
+        Done
+      </button>
     </div>
   );
 }

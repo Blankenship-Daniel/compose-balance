@@ -12,6 +12,8 @@ import {
   flow,
   ghostsOf,
   pullBar,
+  pullOneBar,
+  sectionIndexAt,
   type Layout,
   rowsFor,
   sectionParts,
@@ -354,5 +356,21 @@ describe("what a pull leaves behind", () => {
       const key = (p: { at: unknown }) => JSON.stringify(p.at);
       expect(again.parts.map(key).sort()).toEqual(rest.parts.map(key).sort());
     }
+  });
+});
+
+describe("editing by touch", () => {
+  it("finds the section under a point", () => {
+    const layout = flow(song("Vs4 Ch4"), 3000);
+    const order = songOf(layout).order;
+    const ch = order[1]!.box;
+    expect(sectionIndexAt(layout, { x: (ch.left + ch.right) / 2, y: (ch.top + ch.bottom) / 2 })).toBe(1);
+    expect(sectionIndexAt(layout, { x: 2900, y: 2900 })).toBe(-1);
+  });
+
+  it("takes one bar off a section into a section of its own beside it", () => {
+    const next = pullOneBar(flow(song("Vs4 Ch4"), 3000), 0, 3000)!;
+    expect(read(next).split(" ").sort()).toEqual(["Ch4", "Vs1", "Vs3"]);
+    expect(pullOneBar(flow(song("Vs1"), 3000), 0, 3000)).toBeNull();
   });
 });

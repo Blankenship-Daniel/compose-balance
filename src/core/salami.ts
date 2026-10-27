@@ -40,7 +40,7 @@ const FUNCTIONS: Record<string, Role> = {
   contrasting_middle: "bridge",
   break: "interlude",
   build: "transition",
-  "post-chorus": "interlude",
+  postchorus: "postchorus",
   "post-verse": "interlude",
   "pick-up": "intro",
   tag: "outro",

@@ -5,8 +5,9 @@ import { format, parse } from "../core/parse.ts";
 import { PRESETS } from "../core/presets.ts";
 import { COMMON_METERS, formatMeter, FOUR_FOUR, type Meter, parseMeter, tempoNote } from "../core/meter.ts";
 import { analyze } from "../core/score.ts";
+import { DEFAULT_ERA, ERA_NAME } from "../core/corpus.ts";
 import { formatSeconds, secondsFor } from "../core/stats.ts";
-import type { Options, Section } from "../core/types.ts";
+import type { Era, Options, Section } from "../core/types.ts";
 import { Chart } from "./Chart.tsx";
 import { LatticeTable } from "./LatticeTable.tsx";
 import { flow, type Layout, rightOf, sync } from "../core/lattice.ts";
@@ -16,14 +17,20 @@ import { Findings } from "./Findings.tsx";
 import { Help } from "./Help.tsx";
 import { Menu } from "./Menu.tsx";
 
-function readHash(): { notation: string; bpm: number; meter: string } | null {
+function readHash(): { notation: string; bpm: number; meter: string; era: Era } | null {
   const params = new URLSearchParams(location.hash.slice(1));
   const f = params.get("f");
   if (!f) return null;
-  return { notation: f, bpm: Number(params.get("bpm")) || 100, meter: params.get("m") ?? "4/4" };
+  const era = params.get("era");
+  return {
+    notation: f,
+    bpm: Number(params.get("bpm")) || 100,
+    meter: params.get("m") ?? "4/4",
+    era: era && Object.hasOwn(ERA_NAME, era) ? (era as Era) : DEFAULT_ERA,
+  };
 }
 
-const initial = readHash() ?? { notation: PRESETS[0]!.notation, bpm: PRESETS[0]!.bpm, meter: "4/4" };
+const initial = readHash() ?? { notation: PRESETS[0]!.notation, bpm: PRESETS[0]!.bpm, meter: "4/4", era: DEFAULT_ERA };
 const initialMeter = ((m) => (typeof m === "string" ? FOUR_FOUR : m))(parseMeter(initial.meter));
 
 function readPref(key: string): string | null {
@@ -52,7 +59,7 @@ export function App() {
   const [sections, setSections] = useState<Section[]>(() => parse(initial.notation).sections);
   const [text, setText] = useState(() => format(parse(initial.notation).sections));
   const [errors, setErrors] = useState<string[]>([]);
-  const [opts, setOpts] = useState<Options>({ bpm: initial.bpm, meter: initialMeter });
+  const [opts, setOpts] = useState<Options>({ bpm: initial.bpm, meter: initialMeter, era: initial.era });
   // The meter field keeps what was typed; opts.meter keeps the last valid meter.
   const [meterText, setMeterText] = useState(() => formatMeter(initialMeter));
   const [meterError, setMeterError] = useState<string | null>(null);
@@ -73,6 +80,8 @@ export function App() {
   // Bumped by the verdict's link to open the board's first pinned note.
   const [openFirst, setOpenFirst] = useState(0);
   const [openShelf, setOpenShelf] = useState(0);
+  // Phones: the toolbar's settings row, shown on demand.
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [shears, setShears] = useState(false);
   // The chart is the main editor; text entry is opt-in and remembered per browser.
   const [typing, setTypingState] = useState(() => readPref("typing") === "1");
@@ -94,8 +103,10 @@ export function App() {
 
   useEffect(() => {
     const m = encodeURIComponent(formatMeter(opts.meter));
-    window.history.replaceState(null, "", `#f=${encodeURIComponent(format(sections))}&bpm=${opts.bpm}&m=${m}`);
-  }, [sections, opts.bpm, opts.meter]);
+    // The default era stays out of the URL, so older links and new ones read the same.
+    const era = opts.era && opts.era !== DEFAULT_ERA ? `&era=${opts.era}` : "";
+    window.history.replaceState(null, "", `#f=${encodeURIComponent(format(sections))}&bpm=${opts.bpm}&m=${m}${era}`);
+  }, [sections, opts.bpm, opts.meter, opts.era]);
 
   useEffect(() => () => player.current?.stop(), []);
 
@@ -167,6 +178,14 @@ export function App() {
     stop();
   }
 
+  /** Every section laid out again, neatly, in song order. */
+  function tidy() {
+    update(sections, flow(sections, tableWidth));
+    // Tidied, the table is the app's layout again: it reflows when the window changes.
+    setAutoLayout(true);
+    setSettingsOpen(false);
+  }
+
   function loadPreset(name: string) {
     const p = PRESETS.find((x) => x.name === name);
     if (!p) return;
@@ -227,7 +246,7 @@ export function App() {
         onOpenShelf={() => (view === "table" ? setOpenShelf((n) => n + 1) : document.getElementById("findings")?.scrollIntoView({ behavior: "smooth" }))}
       />
 
-      <div className="toolbar">
+      <div className={`toolbar ${settingsOpen ? "settings-open" : ""}`}>
         <div className="toolbar-row">
           <button
             className="play"
@@ -280,7 +299,29 @@ export function App() {
               {formatSeconds(report.seconds)}
             </span>
           )}
-          <div className="toolbar-actions">
+          {/* Phones: one row of Play, the time, Undo and this; the rest opens below it. */}
+          <button
+            className="settings-toggle"
+            aria-expanded={settingsOpen}
+            aria-controls="toolbar-settings"
+            onClick={() => setSettingsOpen((v) => !v)}
+          >
+            {settingsOpen ? "Close" : "Settings"}
+          </button>
+          <div className="toolbar-actions" id="toolbar-settings">
+          <select
+            className="era"
+            value={opts.era ?? DEFAULT_ERA}
+            aria-label="Compare against"
+            title="Which hit songs the notes compare your form against"
+            onChange={(e) => setOpts((o) => ({ ...o, era: e.target.value as Era }))}
+          >
+            {(Object.keys(ERA_NAME) as Era[]).map((era) => (
+              <option key={era} value={era}>
+                {ERA_NAME[era]}
+              </option>
+            ))}
+          </select>
           {/* Both views named, the current one marked: a single button that names the other view reads as where you are. */}
           <div className="view-switch" role="group" aria-label="View">
             {(["table", "chart"] as const).map((v) => (
@@ -316,6 +357,11 @@ export function App() {
             <span className="undo-label">Undo</span>
           </button>
           <Menu onPreset={loadPreset} onOpen={setPanel} />
+          {view === "table" && pieces.pieces.length > 0 && (
+            <button className="toolbar-tidy" onClick={tidy}>
+              Tidy up
+            </button>
+          )}
           </div>
         </div>
         {typing && (
@@ -389,11 +435,7 @@ export function App() {
               sky={sky}
               onStart={() => loadPreset(PRESETS[0]!.name)}
               openShelf={openShelf}
-              onTidy={() => {
-                update(sections, flow(sections, tableWidth));
-                // Tidied, the table is the app's layout again: it reflows when the window changes.
-                setAutoLayout(true);
-              }}
+              onTidy={tidy}
             />
           ) : (
             <>

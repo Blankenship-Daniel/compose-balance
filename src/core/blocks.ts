@@ -23,6 +23,7 @@ export const BLOCK_OF: Record<Role, { shape: ShapeName; hollow: boolean }> = {
   interlude: { shape: "rhombus", hollow: true },
   transition: { shape: "triangle", hollow: true },
   coda: { shape: "square", hollow: true },
+  postchorus: { shape: "thin", hollow: true },
 };
 
 export const translate = (pts: Pt[], d: Pt) => pts.map((p) => ({ x: p.x + d.x, y: p.y + d.y }));
@@ -37,6 +38,11 @@ function signedArea(pts: Pt[]): number {
 /** Corners wound clockwise on screen (positive area with y down). */
 function wound(pts: Pt[]): Pt[] {
   return signedArea(pts) < 0 ? pts.slice().reverse() : pts;
+}
+
+/** The mean of some points: a shape's middle, near enough for a label or a hit. */
+export function centroid(pts: Pt[]): Pt {
+  return { x: pts.reduce((t, p) => t + p.x, 0) / pts.length, y: pts.reduce((t, p) => t + p.y, 0) / pts.length };
 }
 
 export function bounds(pts: Pt[]): { left: number; top: number; right: number; bottom: number } {
@@ -82,7 +88,12 @@ export function sideOf(pts: Pt[], depth = DEPTH): Pt[] {
  * gentle S-curve, however tall either section is; one on a later row gets a path that drops into
  * the gap above it and comes in from the left, like a line of text wrapping.
  */
-export function threadPath(fromBlock: Pt[], toBlock: Pt[], toTop: number, sameRow: boolean): { d: string; mid: Pt } {
+export function threadPath(
+  fromBlock: Pt[],
+  toBlock: Pt[],
+  toTop: number,
+  sameRow: boolean,
+): { d: string; mid: Pt; ends?: { out: string; in: string; outEnd: Pt; inStart: Pt } } {
   const a = bounds(fromBlock);
   const b = bounds(toBlock);
   const start = { x: a.right + 0.08, y: (a.top + a.bottom) / 2 };
@@ -112,5 +123,17 @@ export function threadPath(fromBlock: Pt[], toBlock: Pt[], toTop: number, sameRo
     `Q${into},${end.y} ${into + r},${end.y}`,
     `L${end.x},${end.y}`,
   ].join(" ");
-  return { d, mid: { x: (out + into) / 2, y: gap } };
+  // The same wrap as a line break: only its two ends, the turn down out of this section and the
+  // turn in to the next, each stopping short where the long run would be.
+  const stub = 0.8;
+  const down = Math.sign(gap - start.y);
+  const outEnd = { x: out, y: start.y + down * (r + stub) };
+  const inStart = { x: into, y: end.y - r - stub };
+  const ends = {
+    out: [`M${start.x},${start.y}`, `L${out - r},${start.y}`, `Q${out},${start.y} ${out},${start.y + down * r}`, `L${outEnd.x},${outEnd.y}`].join(" "),
+    in: [`M${inStart.x},${inStart.y}`, `L${into},${end.y - r}`, `Q${into},${end.y} ${into + r},${end.y}`, `L${end.x},${end.y}`].join(" "),
+    outEnd,
+    inStart,
+  };
+  return { d, mid: { x: (out + into) / 2, y: gap }, ends };
 }

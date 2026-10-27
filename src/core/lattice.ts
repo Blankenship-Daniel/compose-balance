@@ -50,11 +50,12 @@ export const UNITS: Record<Role, number> = {
   instrumental: 3,
   coda: 4,
   solo: 6,
+  postchorus: 2,
 };
 
 /**
  * Each section type's colour on the board: the kit's five woods (0–4, a wash), its olive (5, solid),
- * wood 0 solid (6), and white (7). Eight colours for eleven types: the four rarest share white,
+ * wood 0 solid (6), and white (7). Eight colours for twelve types: the five rarest share white,
  * and which of them a white section is lives in `Layout.roles`.
  */
 export const TONE: Record<Role, number> = {
@@ -69,6 +70,7 @@ export const TONE: Record<Role, number> = {
   interlude: 7,
   transition: 7,
   coda: 7,
+  postchorus: 7,
 };
 const SHARED = 7;
 const TONE_ROLE: Role[] = ["chorus", "verse", "prechorus", "bridge", "intro", "outro", "solo", "instrumental"];
@@ -743,7 +745,7 @@ function finishing(layout: Layout, index: number, width: number): { parts: Part[
 }
 
 /** Parts split into the groups of them that touch. */
-function connected(parts: Part[]): Part[][] {
+export function connected(parts: Part[]): Part[][] {
   const seen = new Set<number>();
   const out: Part[][] = [];
   parts.forEach((_, start) => {
@@ -889,6 +891,40 @@ export function splitBar(
   if (!split) return null;
   const bar = split.pieces.find((p) => p.id === barId)!;
   return { layout: split, barId, keys: bar.parts.flatMap(trisOfPart).map(triKey).sort(), sourceId: source.id, tone: part.tone };
+}
+
+/** The index (in reading order) of the section with a triangle or cell under a point, or -1. */
+export function sectionIndexAt(layout: Layout, at: Pt): number {
+  const cell = hexAt(at.x, at.y);
+  const under = trisOf(cell).reduce((best, t) => {
+    const m = triMid(t);
+    const d = Math.hypot(m.x - at.x, m.y - at.y);
+    return d < best.d ? { t, d } : best;
+  }, { t: trisOf(cell)[0]!, d: Infinity }).t;
+  return songOf(layout).order.findIndex((s) =>
+    s.parts.some((p) => (p.kind === "cell" ? p.at.q === cell.q && p.at.r === cell.r : triKey(p.at) === triKey(under))),
+  );
+}
+
+/**
+ * One bar taken off section `index`, for a tap rather than a drag: the section one bar shorter,
+ * laid out again where it stands, and the bar in its own shape as a section of its own in the
+ * nearest free place to its right. Null for a one-bar section, or with no room.
+ */
+export function pullOneBar(layout: Layout, index: number, width: number): Layout | null {
+  const s = songOf(layout).order[index];
+  if (!s || Math.round(s.bars) < 2) return null;
+  const shorter = withBars(layout, index, Math.round(s.bars) - 1, width);
+  if (!shorter) return null;
+  const at = hexAt(s.box.right + 50, s.box.top + 44);
+  const id = newPieceId();
+  let bar: Piece | undefined = pieceOf(id, sectionParts(s.role, 1, at));
+  const area = areaOf(width);
+  if (!fits(bar, shorter.pieces, area)) bar = nearestFit(bar, shorter.pieces, area);
+  if (!bar) return null;
+  const roles = { ...shorter.roles };
+  if (TONE[s.role] === SHARED) roles[bar.id] = s.role;
+  return { pieces: [...shorter.pieces, bar], roles };
 }
 
 /** The triangle keys of a piece, sorted: to tell whether a piece ended where it started. */

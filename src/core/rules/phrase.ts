@@ -1,8 +1,8 @@
-import { CORPUS_SOURCE, formatShare, gridShare, lengthShare, MIN_SAMPLE, sampleSize } from "../corpus.ts";
+import { type Corpus, corpusFor, DEFAULT_ERA, formatShare, MIN_SAMPLE } from "../corpus.ts";
 import { NAME } from "../parse.ts";
 import { markIntentional, setBars } from "../fixes.ts";
-import { typicalBars } from "../stats.ts";
-import type { Finding, Fix, Role, Section, Severity } from "../types.ts";
+import { repeats, typicalBars } from "../stats.ts";
+import type { Era, Finding, Fix, Role, Section, Severity } from "../types.ts";
 
 const PHRASE_SOURCE =
   "Rothstein, Phrase Rhythm in Tonal Music (1989); Love, MTO 21.3 (2015); Pattison, Writing Better Lyrics";
@@ -18,8 +18,8 @@ export function irregularity(bars: number): number {
  * short, a bar long, half a phrase), in bits against landing on it: 1 bit is
  * half as common, 3 bits an eighth as common. Measured from the corpus.
  */
-export function rarity(role: Role, bars: number): number {
-  return Math.max(0, Math.log2(gridShare(role, 0) / gridShare(role, bars % 4)));
+export function rarity(corpus: Corpus, role: Role, bars: number): number {
+  return Math.max(0, Math.log2(corpus.gridShare(role, 0) / corpus.gridShare(role, bars % 4)));
 }
 
 /**
@@ -48,14 +48,16 @@ function roleWeight(sections: Section[], i: number): number {
 /**
  * A section's score is rarity × role weight. One odd section is ordinary:
  * most hits have some. A song only reads as unbalanced when its odd sections
- * add up to more than this, which 90% of corpus songs stay under (see the
- * corpus check in __tests__/corpus-eval.test.ts).
+ * add up to more than 9 in 10 of the era's hits do (`Corpus.songLimit`).
+ * Below that, a section only warns when it is more irregular than the most
+ * irregular section of 3 in 4 of the era's hits (`Corpus.warnScore`). Modern
+ * hits keep closer to the grid, so the same length scores higher against them,
+ * and their cutoff is higher to match.
  */
-const SONG_LIMIT = 16;
-
-function severityFor(score: number, songScore: number): Severity {
+function severityFor(score: number, songScore: number, corpus: Corpus): Severity {
   if (score < 1.25) return "info";
-  return songScore >= SONG_LIMIT ? "problem" : "warning";
+  if (songScore > corpus.songLimit) return "problem";
+  return score >= corpus.warnScore ? "warning" : "info";
 }
 
 function gridNote(bars: number): string {
@@ -87,9 +89,13 @@ function lengthTargets(bars: number, typical: number | undefined): number[] {
   return out;
 }
 
-/** R1–R3: section lengths against the 4-bar hypermeter, weighted by role. */
-export function lengthRule(sections: Section[]): Finding[] {
-  const scores = sections.map((s, i) => (irregularity(s.bars) ? rarity(s.role, s.bars) * roleWeight(sections, i) : 0));
+/**
+ * Each section's score (0 on the grid), the irregular neighbours that
+ * compensate each other, and the song's total, which `!` sections stay out of.
+ * The corpus script scores every corpus song with this too.
+ */
+export function gridScores(sections: Section[], corpus: Corpus): { scores: number[]; compensated: Set<number>; total: number } {
+  const scores = sections.map((s, i) => (irregularity(s.bars) ? rarity(corpus, s.role, s.bars) * roleWeight(sections, i) : 0));
   const compensated = new Set<number>();
   // Two irregular neighbours that add up to whole 4-bar phrases (7 + 5, 6 + 2)
   // put the song back on the grid, so each one hurts less.
@@ -101,10 +107,14 @@ export function lengthRule(sections: Section[]): Finding[] {
       compensated.add(i + 1);
     }
   }
-  const songScore = sections.reduce(
-    (sum, s, i) => (s.intentional ? sum : sum + scores[i]! * (compensated.has(i) ? 0.5 : 1)),
-    0,
-  );
+  const total = sections.reduce((sum, s, i) => (s.intentional ? sum : sum + scores[i]! * (compensated.has(i) ? 0.5 : 1)), 0);
+  return { scores, compensated, total };
+}
+
+/** R1–R3: section lengths against the 4-bar hypermeter, scored against the era's hits and weighted by role. */
+export function lengthRule(sections: Section[], era: Era = DEFAULT_ERA): Finding[] {
+  const corpus = corpusFor(era);
+  const { scores, compensated, total: songScore } = gridScores(sections, corpus);
 
   const groups = new Map<string, number[]>();
   sections.forEach((s, i) => {
@@ -120,17 +130,19 @@ export function lengthRule(sections: Section[]): Finding[] {
     const score = Math.max(...indexes.map((i) => scores[i]!));
     const isCompensated = compensated.has(indexes[0]!);
 
-    const share = lengthShare(first.role, first.bars);
+    const share = corpus.lengthShare(first.role, first.bars);
     const why = [
       gridNote(first.bars),
-      `In the Billboard corpus, ${formatShare(share)} of ${pluralName(first.role)} are ${first.bars} bars.`,
+      `In the ${corpus.name} corpus, ${formatShare(share)} of ${pluralName(first.role)} are ${first.bars} bars.`,
       roleNote(first.role, weight),
     ];
     if (isCompensated) why.push("It pairs with a neighbouring irregular section to make whole 4-bar phrases, which softens the effect.");
 
-    let severity = severityFor(score, songScore);
+    let severity = severityFor(score, songScore, corpus);
     if (severity === "problem")
-      why.push("Together with the song's other odd lengths, this adds up to more irregularity than 90% of the corpus songs have.");
+      why.push(`Together with the song's other odd lengths, this adds up to more irregularity than 90% of ${corpus.name} corpus songs have.`);
+    else if (severity === "info" && score >= 1.25)
+      why.push(`At least 1 in 4 ${corpus.name} corpus songs has a section this far off the grid, so this is a note rather than a warning.`);
     if (isCompensated) severity = severity === "problem" ? "warning" : "info";
     if (first.intentional) {
       severity = "info";
@@ -157,10 +169,10 @@ export function lengthRule(sections: Section[]): Finding[] {
     findings.push({
       rule: "R2",
       severity,
-      basis: sampleSize(first.role) >= MIN_SAMPLE ? "well-supported" : "convention",
+      basis: corpus.sampleSize(first.role) >= MIN_SAMPLE ? "well-supported" : "convention",
       title: `${label} breaks the 4-bar phrase grid`,
       why: why.join(" "),
-      source: `${PHRASE_SOURCE}; ${CORPUS_SOURCE}`,
+      source: `${PHRASE_SOURCE}; ${corpus.source}`,
       sectionIndexes: indexes,
       // An odd length is felt where the section hands over: the next one lands early or late.
       boundaries: indexes.filter((i) => i < sections.length - 1),
@@ -187,38 +199,53 @@ function typicalRegular(sections: Section[], role: Role): number | undefined {
   );
 }
 
-/** R4: repeated sections of the same type should usually match in length. */
-export function mismatchRule(sections: Section[]): Finding[] {
+/** Below this share of corpus songs, a repeat's length change is unusual enough to warn about. */
+const RARE_CHANGE = 0.03;
+
+/**
+ * R4: repeated sections of the same type usually match in length. How much a
+ * change stands out depends on where it is: hits often stretch the last chorus
+ * or trim the last verse, but rarely the first. Measured from the corpus.
+ */
+export function mismatchRule(sections: Section[], era: Era = DEFAULT_ERA): Finding[] {
+  const corpus = corpusFor(era);
   const findings: Finding[] = [];
   for (const role of ["verse", "prechorus", "chorus"] as const) {
-    const indexes = sections.flatMap((s, i) => (s.role === role ? [i] : []));
-    if (indexes.length < 2) continue;
-    const typical = typicalRegular(sections, role);
-    if (typical === undefined) continue;
-    const lastIndex = indexes[indexes.length - 1]!;
-    const deviants = indexes.filter((i) => {
-      const bars = sections[i]!.bars;
-      if (bars === typical || irregularity(bars)) return false; // irregular ones are covered by R2
-      // An extended final chorus (double chorus, tag) is a convention, not an imbalance.
-      if (i === lastIndex && role === "chorus" && bars > typical && bars % typical === 0) return false;
-      return true;
-    });
-    if (deviants.length === 0) continue;
+    const changed = repeats(sections, role).filter(
+      // A final chorus repeated whole (double or triple chorus, tag) is a convention, not an imbalance.
+      (r) => {
+        const bars = sections[r.index]!.bars;
+        const repeatedWhole = role === "chorus" && r.position === "last" && bars > r.typical && bars % r.typical === 0;
+        return r.change !== "same" && !repeatedWhole;
+      },
+    );
 
-    const byBars = new Map<number, number[]>();
-    for (const i of deviants) byBars.set(sections[i]!.bars, [...(byBars.get(sections[i]!.bars) ?? []), i]);
-    for (const [bars, idx] of byBars) {
-      const ratio = bars / typical;
-      const doubled = ratio === 2 || ratio === 0.5;
+    const groups = new Map<string, typeof changed>();
+    for (const r of changed) {
+      const key = `${sections[r.index]!.bars}:${r.position}`;
+      groups.set(key, [...(groups.get(key) ?? []), r]);
+    }
+    for (const group of groups.values()) {
+      const { position, change, typical } = group[0]!;
+      const idx = group.map((r) => r.index);
+      const bars = sections[idx[0]!]!.bars;
+      const name = lowerName(role);
+      const share = corpus.repeatShare(role, position, change);
+      const severity: Severity = change !== "doubled" && share < RARE_CHANGE ? "warning" : "info";
+      const how = change === "doubled" ? (bars > typical ? "doubled" : "halved") : change;
+      const why = [
+        change === "doubled"
+          ? `A ${how} ${name} keeps the 4-bar grid, so it still feels balanced. Listeners do notice it, so make sure the change is on purpose.`
+          : `Repeated sections set up an expectation of their own length. A ${bars}-bar ${name} after ${typical}-bar ones lands on a different phrase boundary than the ear predicts.`,
+        `In the ${corpus.name} corpus, ${position === "middle" ? "a middle" : `the ${position}`} ${name} is ${change === "doubled" ? "doubled or halved" : `${how} than the others`} in ${formatShare(share)} of songs with more than one.`,
+      ];
       findings.push({
         rule: "R4",
-        severity: doubled ? "info" : "warning",
-        basis: "speculative",
+        severity,
+        basis: corpus.sampleSize(role) >= MIN_SAMPLE ? "convention" : "speculative",
         title: `${NAME[role]} length changes: ${bars} bars vs the usual ${typical}`,
-        why: doubled
-          ? `A ${ratio === 2 ? "doubled" : "halved"} ${NAME[role].toLowerCase()} keeps the 4-bar grid, so it still feels balanced. Listeners do notice it, so make sure the change is on purpose.`
-          : `Repeated sections set up an expectation of their own length. A ${bars}-bar ${NAME[role].toLowerCase()} after ${typical}-bar ones lands on a different phrase boundary than the ear predicts.`,
-        source: "Pattison, Writing Better Lyrics (repetition and expectation); extension of the hypermeter norm",
+        why: why.join(" "),
+        source: `Pattison, Writing Better Lyrics (repetition and expectation); ${corpus.source}`,
         sectionIndexes: idx,
         fixes: [{ label: `Make ${idx.length > 1 ? "them" : "it"} ${typical} bars`, sections: setBars(sections, idx, typical) }],
       });

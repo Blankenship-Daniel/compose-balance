@@ -16,5 +16,8 @@ describe("shared geometry", () => {
     const wrap = threadPath(b, below, 3, false);
     expect(wrap.d).toContain("Q");
     expect(wrap.mid.y).toBeGreaterThan(0);
+    // As a line break: an end out of the first section and an end into the next, apart.
+    expect(wrap.ends!.outEnd.y).toBeLessThan(wrap.ends!.inStart.y);
+    expect(threadPath(a, b, 0, true).ends).toBeUndefined();
   });
 });

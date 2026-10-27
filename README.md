@@ -26,6 +26,7 @@ Codes are short words, never single capitals, so a form can't be misread as chor
 | `Vs` | verse |
 | `Pre` | pre-chorus |
 | `Ch` | chorus |
+| `Post` | post-chorus (not a SALAMI function, but Billboard files use the label) |
 | `Br` | bridge |
 | `Solo` | solo |
 | `Inst` | instrumental |
@@ -48,14 +49,15 @@ Codes are short words, never single capitals, so a form can't be misread as chor
 
 | Rule | Checks | Basis |
 |---|---|---|
-| R2 | Section length against the 4-bar phrase grid, scored by how rarely hit songs miss the grid that way, weighted by role; a song turns unbalanced only when its odd lengths add up to more than 90% of Billboard hits | well-supported (corpus) |
-| R4 | Repeated sections that change length | speculative |
+| R2 | Section length against the 4-bar phrase grid, scored by how rarely hit songs miss the grid that way, weighted by role. It warns only on sections more irregular than 3 in 4 of the era's hits have, and a song turns unbalanced only when its odd lengths add up to more than 90% of hits | well-supported (corpus) |
+| R4 | Repeated sections that change length; warns only where hits rarely change (a longer first verse), notes where they often do (a stretched last chorus) | convention (corpus) |
 | R7 | 3 or more verses before the first chorus (verse–chorus forms only) | convention |
-| R8 | Long intro; seconds to first chorus at your tempo | convention |
+| R8 | Long intro; seconds to first chorus at your tempo, against when the era's hits reach it (note past 3 in 4, warning past 9 in 10) | convention (corpus) |
 | R9 | Chorus appears only once; bridge too early or not resolved; AABA order | convention |
-| R10, R12 | Bridge position against the Billboard corpus, very long songs (notes only) | convention |
+| R10, R12 | Bridge position against where the era's bridges start; songs longer than 9 in 10 of the era's (notes only) | convention (corpus) |
+| R11 | A hand-off fewer than 1% of Billboard hits make, such as chorus into pre-chorus or ending on a pre-chorus (notes only) | convention (corpus) |
 
-Verdict:
+Verdict (beside it, how the song's phrase lengths rank among the era's hits, e.g. "More regular than 35% of modern hits"):
 
 - **Unbalanced:** any problem.
 - **Mostly balanced:** warnings only.
@@ -76,9 +78,10 @@ Sources and caveats are in [docs/research.md](docs/research.md).
 | Outro | a long rhombus (4 triangles) | tan, solid |
 | Chorus | the whole hexagon | yellow |
 | Solo | the whole hexagon | yellow, solid |
+| Post-chorus | 2 triangles (a diamond) | white, tan side |
 | Instrumental, interlude, transition, coda | a trapezoid, a rhombus, a triangle and a big triangle | white |
 
-- **Sections:** a section is a piece's parts of one colour that touch, and its bars are its triangles over its bar's size. The board's woods are the section colours (`--color-tree-wood-0…4` and `--color-tree-olive` on the element). It has eight colours for eleven types, so the four rare types share white and which one a white section is lives beside the pieces (`Layout.roles`, carried across moves, glues and breaks).
+- **Sections:** a section is a piece's parts of one colour that touch, and its bars are its triangles over its bar's size. The board's woods are the section colours (`--color-tree-wood-0…4` and `--color-tree-olive` on the element). It has eight colours for twelve types, so the five rarer types share white and which one a white section is lives beside the pieces (`Layout.roles`, carried across moves, glues and breaks).
 - **Pulling a bar off:** Alt-drag (Option-drag on a Mac) lifts one bar off a section, in its own shape (a diamond from a verse, half a hexagon from a pre-chorus), and carries it whole. The board's own Alt-drag pulls one *part*, and here a part is one triangle, so on an Alt press the app first makes the bar under the pointer a piece of its own where it stands (`splitBar`) and hands the board the press without Alt, so the board lifts the whole bar. Let go where it started, and it goes back into its section. A chorus's part is a whole cell, already a bar, so the board pulls it its own way. If a pull still comes through as one triangle, the app swaps in the whole bar on drop (`pullBar`).
 - **Whole bars only:** every change the board makes is read back into the song; one that would leave part of a bar (breaking a verse into single triangles, pulling one triangle off a pre-chorus) is refused with the board's cancelable `change` event, and the board puts the pieces back.
 - **Layout:** every section is laid out as calmly as the lattice allows. A verse, pre-chorus, bridge, intro or outro is the most compact convex shape with exactly its number of triangles (`convexShape`): every convex shape on this lattice is a big triangle with its corners cut off, and cutting the two left corners alike (and the tip to match) makes it symmetric both ways. So 2 triangles are a diamond, 6 a hexagon, 8 a big diamond, 16 (an 8-bar verse) a hexagon with short upright sides, 24 a big regular hexagon; counts with no symmetric shape get a symmetric trapezoid or big triangle. A chorus, whose pieces move a whole cell at a time, is its cells in centred rows that widen then narrow (`rowsFor`): one row, a pyramid, a hexagon (3-4-3, 5-6-5). One outro bar is a long rhombus. Sections run left to right like wrapped text. A short section's unfinished phrase shows as a dashed outline of the finished shape; click it to fill it.
@@ -102,6 +105,7 @@ Sources and caveats are in [docs/research.md](docs/research.md).
   - quarter notes in `/4` meters
   - eighth notes in odd `/8` meters (`7/8` at 210 means 210 eighths a minute)
   - dotted quarters in compound meters (`6/8`, `9/8`, `12/8`)
+- **Era:** the toolbar's picker sets which hits the notes compare against: modern (Harmonix Set, about 1990s–2010s, the default) or classic (McGill Billboard, 1958–1991). Links that don't name an era use the modern one.
 - **Length:** the toolbar shows the song's length at the current tempo and time signature, and elapsed / total while playing.
 - **Play:** press **Play** or Space, or click any bar. The chords are placeholders so you can hear the form.
 - **⋯ menu:** examples, import or export (SALAMI / Billboard), and "How this works".
@@ -127,7 +131,7 @@ The UI is built on [`@harmonics/lattice-ui`](https://www.npmjs.com/package/@harm
 
 `src/core/lattice.ts` lays the song out as `<lattice-board>` pieces (`flow`, `sectionParts`), reads the song back from them (`songOf`: sections, bars, reading order, whether every bar is whole), and makes the app's own edits (`withBars` for + and −, ghosts and shears; `dropBar` for the tray; `sync` keeps pieces where they are when only lengths change elsewhere). `src/core/blocks.ts` keeps the shared drawing geometry: a shape's raised side and the thread between sections.
 
-The app uses `@harmonics/lattice-ui` (`^0.6.0`) for its board, face, page background, shears and icons.
+The app uses `@harmonics/lattice-ui` (`^0.9.0`) for its board, face, page background, shears and icons.
 
 ## Development
 
@@ -138,4 +142,4 @@ npm run build      # typecheck + production build
 
 - **Scoring core:** `src/core/` is the scoring engine, pure TypeScript with no DOM, so a CLI could reuse it.
 - **Thresholds:** they live in `rules/phrase.ts` (role weights, severity cutoffs) and `rules/macro.ts` (time limits).
-- **Corpus:** `node scripts/corpus-stats.ts <billboard-dir>` rebuilds `src/core/corpus/billboard.json`; `BILLBOARD_DIR=<dir> npm test` also checks the engine against every song in it ([docs/research.md](docs/research.md#corpus-measurements-srccorecorpusts)).
+- **Corpus:** `node scripts/corpus-stats.ts <dir>` rebuilds `src/core/corpus/billboard.json` from a Billboard folder, or `harmonix.json` from the Harmonix Set's `dataset` folder. `BILLBOARD_DIR=<dir> HARMONIX_DIR=<dir> npm test` also checks the engine against every song in them ([docs/research.md](docs/research.md#corpus-measurements-srccorecorpusts)).
