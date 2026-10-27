@@ -1380,8 +1380,11 @@ lattice-icon {
   pointer-events: auto;
 }
 
+/* Past the table's edges, into the margin above the first row and beside the first column, so a
+   cut can start just outside a section. Cuts are read against the pad's own box. */
 .table .shears {
   z-index: 3;
+  inset: -20px -12px -12px -16px;
 }
 
 /* The tray stays at the bottom of the screen while the board is in view: it is where blocks come
@@ -1942,7 +1945,8 @@ lattice-icon {
   /* Finger-sized targets. */
   .toolbar button,
   .toolbar .tempo,
-  .toolbar .meter {
+  .toolbar .meter,
+  .toolbar .era {
     min-height: 44px;
   }
   .toolbar .undo,

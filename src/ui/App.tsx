@@ -3,7 +3,7 @@ import type { HexSky } from "@harmonics/lattice-ui";
 import { Player } from "../audio/player.ts";
 import { format, parse } from "../core/parse.ts";
 import { PRESETS } from "../core/presets.ts";
-import { COMMON_METERS, formatMeter, FOUR_FOUR, type Meter, parseMeter, tempoNote } from "../core/meter.ts";
+import { COMMON_METERS, formatMeter, FOUR_FOUR, parseMeter, tempoNote } from "../core/meter.ts";
 import { analyze } from "../core/score.ts";
 import { DEFAULT_ERA, ERA_NAME } from "../core/corpus.ts";
 import { formatSeconds, secondsFor } from "../core/stats.ts";
@@ -24,7 +24,7 @@ function readHash(): { notation: string; bpm: number; meter: string; era: Era } 
   const era = params.get("era");
   return {
     notation: f,
-    bpm: Number(params.get("bpm")) || 100,
+    bpm: Math.min(400, Math.max(20, Number(params.get("bpm")) || 100)),
     meter: params.get("m") ?? "4/4",
     era: era && Object.hasOwn(ERA_NAME, era) ? (era as Era) : DEFAULT_ERA,
   };
@@ -63,7 +63,9 @@ export function App() {
   // The meter field keeps what was typed; opts.meter keeps the last valid meter.
   const [meterText, setMeterText] = useState(() => formatMeter(initialMeter));
   const [meterError, setMeterError] = useState<string | null>(null);
-  const [undoStack, setUndoStack] = useState<{ sections: Section[]; pieces: Layout }[]>([]);
+  // Each step's song and table, and the settings it changed with it (a preset's tempo, an
+  // import's meter) as they were before, so undo puts those back too.
+  const [undoStack, setUndoStack] = useState<{ sections: Section[]; pieces: Layout; settings?: Partial<Options> }[]>([]);
   // The shape table's pieces, and its width in the lattice's pixels at scale 1.
   const [tableWidth, setTableWidth] = useState(1500);
   const [pieces, setPieces] = useState<Layout>(() => flow(parse(initial.notation).sections, 1500));
@@ -122,7 +124,8 @@ export function App() {
   };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") return keys.current.close();
+      // The form field's own Escape leaves Text, and only that.
+      if (e.key === "Escape") return e.target instanceof HTMLElement && e.target.id === "notation" ? undefined : keys.current.close();
       if (isTyping(e.target)) return;
       if (e.key === " " && !(e.target instanceof HTMLButtonElement)) {
         e.preventDefault();
@@ -141,9 +144,14 @@ export function App() {
     return sync(pieces, next, tableWidth);
   }
 
-  /** Every structural edit goes through here so undo, the text box and the table stay in sync. */
-  function update(next: Section[], nextPieces?: Layout) {
-    setUndoStack((h) => [...h.slice(-49), { sections, pieces }]);
+  /**
+   * Every structural edit goes through here so undo, the text box and the table stay in sync.
+   * `settings` are changed in the same undo step (a preset's tempo, an import's meter).
+   */
+  function update(next: Section[], nextPieces?: Layout, settings?: Partial<Options>) {
+    const before = settings && (Object.fromEntries(Object.keys(settings).map((k) => [k, opts[k as keyof Options]])) as Partial<Options>);
+    setUndoStack((h) => [...h.slice(-49), { sections, pieces, settings: before }]);
+    if (settings) applySettings(settings);
     setSections(next);
     setPieces(nextPieces ?? piecesFor(next));
     // Pieces handed in come from the table itself: the user has arranged them. An edit made
@@ -171,11 +179,21 @@ export function App() {
     const prev = undoStack[undoStack.length - 1];
     if (!prev) return;
     setUndoStack((h) => h.slice(0, -1));
+    if (prev.settings) applySettings(prev.settings);
     setSections(prev.sections);
     setPieces(prev.pieces);
     setText(format(prev.sections));
     setErrors([]);
     stop();
+  }
+
+  /** Tempo, meter or era set as part of an edit or its undo; the meter field shows the meter set. */
+  function applySettings(settings: Partial<Options>) {
+    setOpts((o) => ({ ...o, ...settings }));
+    if (settings.meter) {
+      setMeterText(formatMeter(settings.meter));
+      setMeterError(null);
+    }
   }
 
   /** Every section laid out again, neatly, in song order. */
@@ -189,8 +207,7 @@ export function App() {
   function loadPreset(name: string) {
     const p = PRESETS.find((x) => x.name === name);
     if (!p) return;
-    setOpts((o) => ({ ...o, bpm: p.bpm }));
-    update(parse(p.notation).sections);
+    update(parse(p.notation).sections, undefined, { bpm: p.bpm });
   }
 
   function play(fromBar = 0) {
@@ -215,12 +232,6 @@ export function App() {
     if (typeof parsed === "string") return setMeterError(parsed);
     setMeterError(null);
     setOption({ meter: parsed });
-  }
-
-  function setMeter(meter: Meter) {
-    setOption({ meter });
-    setMeterText(formatMeter(meter));
-    setMeterError(null);
   }
 
   const flashTimer = useRef(0);
@@ -402,10 +413,7 @@ export function App() {
           sections={sections}
           opts={opts}
           onClose={() => setPanel(null)}
-          onImport={(next, meter) => {
-            if (meter) setMeter(meter);
-            update(next);
-          }}
+          onImport={(next, meter) => update(next, undefined, meter ? { meter } : undefined)}
         />
       )}
       {panel === "help" && <Help onClose={() => setPanel(null)} />}

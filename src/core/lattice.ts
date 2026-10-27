@@ -629,15 +629,18 @@ export const areaOf = (width: number): Area => ({ left: 0, top: 0, right: width,
 export function flow(sections: Section[], width: number): Layout {
   const pieces: Piece[] = [];
   const roles: Record<string, Role> = {};
+  // A row's first cell, at the left edge: each row down shifts the cells half a cell right, so
+  // q = 0 would start every new row further right, until rows ran off the edge.
+  const rowStart = (row: number) => -Math.floor(row / 2);
   let q = 0;
   let r = 0;
   let rowBottom = 0;
   for (const s of sections) {
     let parts = sectionParts(s.role, s.bars, { q, r });
     let box = boxOfTris(parts.flatMap(trisOfPart));
-    if (q > 0 && box.right > width) {
+    if (q > rowStart(r) && box.right > width) {
       r = rowBottom + 2;
-      q = 0;
+      q = rowStart(r);
       parts = sectionParts(s.role, s.bars, { q, r });
       box = boxOfTris(parts.flatMap(trisOfPart));
     }

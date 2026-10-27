@@ -79,6 +79,8 @@ interface Props {
 interface Pin {
   key: string;
   at: Pt;
+  /** Where the pin is drawn, when `at` would put it over a section's label (see `clearOfLabels`). */
+  place?: Pt;
   severity: Severity;
   findings: Finding[];
   sections: number[];
@@ -152,7 +154,13 @@ export function LatticeTable(props: Props) {
   const fromBoard = useRef<unknown>(null);
   useLayoutEffect(() => {
     const board = boardRef.current;
-    if (board && layout.pieces !== fromBoard.current) board.pieces = layout.pieces;
+    // A copy: the board ignores an array it was handed before, even after the person has moved
+    // its pieces since (so Undo, handing back an earlier layout's own array, would do nothing).
+    if (board && layout.pieces !== fromBoard.current) {
+      board.pieces = [...layout.pieces];
+      // The board holds these now: an Undo back to what it held before is a change to push.
+      fromBoard.current = layout.pieces;
+    }
   }, [layout.pieces]);
   // Every change the board makes: read the song back from it; refuse one that leaves part of a bar.
   const layoutRef = useRef(layout);
@@ -161,6 +169,10 @@ export function LatticeTable(props: Props) {
     const board = boardRef.current;
     if (!board) return;
     const changed = (e: CustomEvent<{ pieces: Layout["pieces"]; action: string; id: string }>) => {
+      // A resize that moved pieces back onto a narrower board (no piece id): not the person's
+      // arrangement, so not read back as the song, which would reorder it. The app lays the song
+      // out again for the new width (onWidth).
+      if (e.detail.id === "") return;
       // A bar lifted by Alt-drag (see `lift` below) and let go where it was: it goes back into its
       // section, as if never lifted.
       const split = pulling.current;
@@ -249,7 +261,7 @@ export function LatticeTable(props: Props) {
       const board = boardRef.current;
       if (!board) return;
       fromBoard.current = layoutRef.current.pieces;
-      board.pieces = layoutRef.current.pieces;
+      board.pieces = [...layoutRef.current.pieces];
     });
   const propsRef = useRef(props);
   propsRef.current = props;
@@ -357,9 +369,42 @@ export function LatticeTable(props: Props) {
   /** A point on the board (block edges) in pixels from the table's top left. */
   const toPx = (p: Pt) => ({ left: gutter + p.x * L, top: TOP + p.y * L });
   const notePlace = (pin: Pin) => {
-    const at = toPx(pin.at);
+    const at = toPx(pin.place ?? pin.at);
     const cardW = Math.min(340, px - 16);
     return { left: Math.max(8, Math.min(at.left - 24, px - cardW - 8)), top: at.top + 18, width: cardW };
+  };
+  /**
+   * The finger-sized target round a section's label, in block edges. It ends above the section's
+   * top, clear of its pieces (the board draws them lifted a little), so a press on a piece always
+   * reaches the piece.
+   */
+  const labelHit = (sec: { box: { left: number; top: number } }) => {
+    const x = sec.box.left / EDGE - 0.15;
+    const y = sec.box.top / EDGE - 0.3 - 44 / L;
+    const h = 44 / L;
+    // Stopping where the next label's target starts on its line, so packed 1-bar sections each
+    // keep their own.
+    const next = order
+      .map((o) => ({ x: o.box.left / EDGE - 0.15, y: o.box.top / EDGE - 0.3 - h }))
+      .filter((o) => o.x > x + 1e-6 && Math.abs(o.y - y) < h)
+      .reduce((m, o) => Math.min(m, o.x), Infinity);
+    return { x, y, width: Math.min(Math.max(h, 2.6), next - x), height: h };
+  };
+  /**
+   * A pin over a section's label would take the clicks meant for it (packed 1-bar sections put
+   * one section's corner on the next one's label): such a pin is drawn just below the label
+   * instead, on the pieces' top edge. The label's text reaches a little below its target.
+   */
+  const clearOfLabels = (pins: Pin[]) => {
+    const r = 12 / L; // half a pin, in block edges
+    for (const pin of pins)
+      for (const sec of order) {
+        const hit = labelHit(sec);
+        const bottom = sec.box.top / EDGE - 0.08;
+        const p = pin.place ?? pin.at;
+        if (p.x + r > hit.x && p.x - r < hit.x + hit.width && p.y + r > hit.y && p.y - r < bottom)
+          pin.place = { x: p.x, y: bottom + r + 0.02 };
+      }
   };
   /** A pointer's place on the board, in the kit's pixels at scale 1. */
   const onBoard = (e: { clientX: number; clientY: number }): Pt | null => {
@@ -407,9 +452,12 @@ export function LatticeTable(props: Props) {
     }
   }
 
-  /** Shears: every section the stroke goes clean through loses a bar. */
-  function cut(points: Pt[]) {
-    const stroke = points.map((p) => ({ x: (p.x - gutter) / scale, y: (p.y - TOP) / scale }));
+  /** Shears: every section the stroke goes clean through loses a bar. Points are the pad's. */
+  function cut(points: Pt[], pad: Element) {
+    const from = pad.getBoundingClientRect();
+    const board = boardRef.current?.getBoundingClientRect();
+    if (!board) return;
+    const stroke = points.map((p) => ({ x: (p.x + from.left - board.left) / scale, y: (p.y + from.top - board.top) / scale }));
     const hit = order.flatMap((sec, i) => (cutThrough(stroke, sec) ? [i] : []));
     let next: Layout | null = layout;
     // Last first, so removing a section doesn't move the ones still to cut.
@@ -465,6 +513,7 @@ export function LatticeTable(props: Props) {
     }
   }
   const pins = [...pinMap.values()].sort((a, b) => RANK[b.severity] - RANK[a.severity] || a.at.y - b.at.y || a.at.x - b.at.x);
+  clearOfLabels(pins);
   pinsRef.current = pins;
   const openPin = pins.find((p) => p.key === open);
   // Of the sections in the picked piece and colour, the one nearest where it was picked.
@@ -653,12 +702,7 @@ export function LatticeTable(props: Props) {
                 {/* A finger-sized target round the label: tap it to pick the section. */}
                 <rect
                   className="label-hit"
-                  x={sec.box.left / EDGE - 0.15}
-                  // Ending above the section's top, clear of its pieces (the board draws them lifted
-                  // a little), so a press on a piece always reaches the piece.
-                  y={sec.box.top / EDGE - 0.3 - 44 / L}
-                  width={Math.max(44 / L, 2.6)}
-                  height={44 / L}
+                  {...labelHit(sec)}
                   onClick={() => setPicked({ pieceId: sec.pieceId, tone: sec.parts[0]!.tone, at: centroid(partPolygon(sec.parts[0]!)) })}
                 />
                 <text
@@ -703,7 +747,7 @@ export function LatticeTable(props: Props) {
         {pins.length > 0 && (
           <div className="pins">
             {pins.map((pin) => {
-              const at = toPx(pin.at);
+              const at = toPx(pin.place ?? pin.at);
               return (
                 <button
                   key={pin.key}
@@ -758,7 +802,7 @@ export function LatticeTable(props: Props) {
             className="shears"
             onstrokeend={(e) => {
               // A stroke cut short (pointer cancelled, pad removed) cuts nothing.
-              if (!e.detail.cancelled) cut(e.detail.points);
+              if (!e.detail.cancelled && e.currentTarget instanceof Element) cut(e.detail.points, e.currentTarget);
               props.onShearsDone();
             }}
           />
