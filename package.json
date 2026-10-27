@@ -7,9 +7,11 @@
     "dev": "vite",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "build": "tsc --noEmit && vite build"
+    "build": "tsc --noEmit && vite build",
+    "e2e": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
@@ -18,7 +20,7 @@
     "vitest": "^5.0.5"
   },
   "dependencies": {
-    "@harmonics/lattice-ui": "^0.9.0",
+    "@harmonics/lattice-ui": "^0.9.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   }

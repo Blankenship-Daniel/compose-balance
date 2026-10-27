@@ -13,6 +13,7 @@ import {
   ghostsOf,
   pullBar,
   pullOneBar,
+  rightOf,
   sectionIndexAt,
   type Layout,
   rowsFor,
@@ -28,6 +29,17 @@ import type { Role } from "../types.ts";
 const ROLES: Role[] = ["chorus", "verse", "prechorus", "bridge", "intro", "outro", "solo", "instrumental", "interlude", "transition", "coda"];
 const song = (text: string) => parse(text).sections;
 const read = (layout: Layout) => format(songOf(layout).sections);
+
+describe("laying a song out", () => {
+  it("keeps every row inside the width, in song order", () => {
+    const pop = song("In4 Vs8 Pre4 Ch8 Vs8 Pre4 Ch8 Br8 Ch8 Ch8 Out4");
+    for (const width of [500, 700, 790, 1000, 1500]) {
+      const layout = flow(pop, width);
+      expect(rightOf(layout), `width ${width}`).toBeLessThanOrEqual(width);
+      expect(read(layout)).toBe(format(pop));
+    }
+  });
+});
 
 describe("laying a section out", () => {
   it("makes every bar a connected run of its type's triangles", () => {
