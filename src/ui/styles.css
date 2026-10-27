@@ -1,0 +1,1764 @@
+/*
+ * The Harmonics tree's look (@harmonics/lattice-ui): its sky, ink, woods and
+ * Roboto Mono, copied onto the page because the kit keeps its tokens inside
+ * each element. Findings are alert (problem) and golden wood (warning) marks.
+ */
+:root {
+  --paper: #f4f4f0;
+  --sheet: #ffffff;
+  --ink: #1e2219;
+  --ink-soft: #565c50;
+  --staff: #cfd1c9;
+  --staff-faint: color-mix(in srgb, var(--staff) 45%, var(--paper));
+  --hook: color-mix(in srgb, #c9a65c 14%, var(--sheet));
+  --red: #a3441e;
+  --red-wash: color-mix(in srgb, var(--red) 9%, var(--sheet));
+  --ochre: #9a7b3c;
+  --ochre-mark: color-mix(in srgb, #c9a65c 45%, var(--sheet));
+  --ochre-wash: color-mix(in srgb, var(--ochre) 10%, var(--sheet));
+  --green: #546d41;
+  --green-wash: color-mix(in srgb, var(--green) 10%, var(--sheet));
+  --focus: #566c78;
+  /* Pattern-block colours, softened to sit with the kit's palette. */
+  --block-hexagon: #efc24b;
+  --block-trapezoid: #d8664f;
+  --block-rhombus: #4d74b8;
+  --block-triangle: #5c9f52;
+  --block-square: #e98d3f;
+  --block-thin: #cdb089;
+  /* What raised blocks are shaded with: always dark, in both themes. */
+  --shade: #1e2219;
+
+  --display: "Roboto Mono", "Roboto Mono Variable", Menlo, monospace;
+  --text: "Roboto Mono", "Roboto Mono Variable", Menlo, monospace;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #1a1e21;
+    --sheet: #22272a;
+    --ink: #e6e7de;
+    --ink-soft: #a6ab9f;
+    --staff: #353a38;
+    --staff-faint: color-mix(in srgb, var(--staff) 60%, var(--paper));
+    --hook: color-mix(in srgb, #9a7b3c 18%, var(--sheet));
+    --red: #f09a74;
+    --red-wash: color-mix(in srgb, var(--red) 12%, var(--sheet));
+    --ochre: #c9a65c;
+    --ochre-mark: color-mix(in srgb, #9a7b3c 55%, var(--sheet));
+    --ochre-wash: color-mix(in srgb, var(--ochre) 12%, var(--sheet));
+    --green: #8aa373;
+    --green-wash: color-mix(in srgb, var(--green) 14%, var(--sheet));
+    --focus: #8aa5b3;
+    --block-hexagon: #d5aa3d;
+    --block-trapezoid: #c75b44;
+    --block-rhombus: #6487c7;
+    --block-triangle: #62a058;
+    --block-square: #d9813a;
+    --block-thin: #b99d79;
+    --shade: #050606;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper: #1a1e21;
+  --sheet: #22272a;
+  --ink: #e6e7de;
+  --ink-soft: #a6ab9f;
+  --staff: #353a38;
+  --staff-faint: color-mix(in srgb, var(--staff) 60%, var(--paper));
+  --hook: color-mix(in srgb, #9a7b3c 18%, var(--sheet));
+  --red: #f09a74;
+  --red-wash: color-mix(in srgb, var(--red) 12%, var(--sheet));
+  --ochre: #c9a65c;
+  --ochre-mark: color-mix(in srgb, #9a7b3c 55%, var(--sheet));
+  --ochre-wash: color-mix(in srgb, var(--ochre) 12%, var(--sheet));
+  --green: #8aa373;
+  --green-wash: color-mix(in srgb, var(--green) 14%, var(--sheet));
+  --focus: #8aa5b3;
+  --block-hexagon: #d5aa3d;
+  --block-trapezoid: #c75b44;
+  --block-rhombus: #6487c7;
+  --block-triangle: #62a058;
+  --block-square: #d9813a;
+  --block-thin: #b99d79;
+  --shade: #050606;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 16px/1.5 var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+button {
+  cursor: pointer;
+  background: var(--sheet);
+  border: 1px solid var(--staff);
+  border-radius: 4px;
+  padding: 5px 12px;
+  font-weight: 500;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--ink);
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+input,
+select {
+  background: var(--sheet);
+  border: 1px solid var(--staff);
+  border-radius: 4px;
+  padding: 5px 8px;
+}
+
+kbd {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 1.05em;
+  padding: 0 4px;
+  border: 1px solid var(--staff);
+  border-radius: 3px;
+  background: var(--sheet);
+}
+
+.app {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 32px 16px 56px;
+}
+
+/* Masthead: a small name and the verdict, the loudest type on the page. */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.masthead {
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+}
+
+h1 {
+  margin: 0;
+  font: 600 1.25rem/1 var(--display);
+  color: var(--ink-soft);
+}
+
+.verdict {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.verdict-word {
+  font: 700 3rem/0.95 var(--display);
+  letter-spacing: -0.01em;
+  transition: color 0.25s;
+}
+
+.verdict-counts {
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-decoration-color: var(--staff);
+  text-underline-offset: 3px;
+}
+
+.verdict-counts:hover {
+  color: var(--ink);
+}
+
+.verdict-balanced .verdict-word {
+  color: var(--green);
+}
+
+.verdict-mostly-balanced .verdict-word {
+  color: var(--ochre);
+}
+
+.verdict-unbalanced .verdict-word {
+  color: var(--red);
+}
+
+/* Toolbar: the form and the transport, kept in reach while a long chart scrolls. */
+
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--paper);
+  padding: 12px 0;
+  border-top: 2px solid var(--ink);
+  border-bottom: 1px solid var(--staff);
+}
+
+.toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* A switched-on toggle is underlined, not filled: a solid fill belongs to Play alone. */
+.type-toggle[aria-pressed="true"],
+.shears-toggle[aria-pressed="true"] {
+  border-color: var(--ink);
+  box-shadow: inset 0 -3px 0 var(--ink);
+}
+
+.notation {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  min-width: 0;
+  font: 600 1.35rem/1.2 var(--display);
+  letter-spacing: 0.05em;
+  padding: 7px 10px;
+  border: 1px solid var(--staff);
+  border-bottom: 2px solid var(--ink);
+}
+
+.notation::placeholder {
+  color: var(--ink-soft);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  opacity: 0.7;
+}
+
+.notation[aria-invalid="true"] {
+  border-bottom-color: var(--red);
+}
+
+.hint {
+  margin: 8px 0 0;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  max-width: 78ch;
+}
+
+.errors {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--red);
+  font-size: 0.9rem;
+}
+
+.play {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 96px;
+  justify-content: center;
+  background: var(--ink);
+  color: var(--sheet);
+  border-color: var(--ink);
+  font: 600 1.1rem/1 var(--display);
+  padding: 10px 16px;
+}
+
+.play[aria-pressed="true"] {
+  background: var(--red);
+  border-color: var(--red);
+}
+
+.play-icon {
+  font-size: 0.8em;
+}
+
+.tempo {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--staff);
+  border-radius: 4px;
+  background: var(--sheet);
+  padding-right: 8px;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.tempo:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.tempo input {
+  width: calc(3ch + 10px);
+  border: none;
+  outline: none;
+  color: var(--ink);
+  text-align: left;
+  padding: 5px 2px 5px 4px;
+  padding-right: 4px;
+  -moz-appearance: textfield;
+}
+
+.tempo input::-webkit-inner-spin-button {
+  display: none;
+}
+
+.tempo-note {
+  padding-left: 8px;
+  font-size: 1.05rem;
+  color: var(--ink);
+}
+
+/* Typed time signature with suggestions: any meter, like 7/8 or 2+2+3/8. */
+.meter {
+  width: 76px;
+  font: 600 1.05rem/1.2 var(--display);
+  text-align: center;
+  padding: 6px 4px;
+}
+
+.meter[aria-invalid="true"] {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* A readout, not a control: elapsed / total while playing. */
+.duration {
+  font: 600 1.2rem/1 var(--display);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  padding: 0 4px;
+}
+
+.undo-icon {
+  display: none;
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: inherit;
+  margin-left: auto;
+}
+
+/* Menu: examples, import/export and help, used once per session. */
+
+.menu {
+  position: relative;
+}
+
+.menu-button {
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 7px 10px;
+}
+
+.menu-list {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  min-width: 250px;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  background: var(--sheet);
+  border: 1px solid var(--staff);
+  border-radius: 6px;
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--ink) 16%, transparent);
+}
+
+.menu-list button {
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 6px 10px;
+  font-weight: 400;
+}
+
+.menu-list button:hover {
+  background: var(--staff-faint);
+}
+
+.menu-heading {
+  margin: 4px 10px 2px;
+  font: 600 1rem/1.2 var(--display);
+  color: var(--ink-soft);
+}
+
+.menu-list hr {
+  border: none;
+  border-top: 1px solid var(--staff);
+  margin: 6px 4px;
+}
+
+/* Panels opened from the menu */
+
+.panel {
+  margin-top: 16px;
+  padding: 16px 20px;
+  background: var(--sheet);
+  border: 1px solid var(--staff);
+  border-radius: 6px;
+}
+
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.panel h2 {
+  margin: 0;
+  font: 600 1.35rem/1.2 var(--display);
+}
+
+.panel h3 {
+  margin: 0 0 6px;
+  font: 600 1.1rem/1.2 var(--display);
+}
+
+.help-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  margin-top: 12px;
+  font-size: 0.95rem;
+}
+
+.help-columns p {
+  margin: 0 0 8px;
+}
+
+.help-columns ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.help-columns ul.codes {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 8px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px 12px;
+}
+
+/* SALAMI / Billboard import and export */
+
+.annotation {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px 12px;
+  font: 400 0.85rem/1.5 ui-monospace, "SF Mono", Menlo, monospace;
+  color: var(--ink);
+  background: var(--sheet);
+  border: 1px solid var(--staff);
+  border-radius: 4px;
+  resize: vertical;
+  tab-size: 12;
+}
+
+.exchange-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.file-button {
+  position: relative;
+  display: inline-block;
+  padding: 5px 12px;
+  font-weight: 500;
+  background: var(--sheet);
+  border: 1px solid var(--staff);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.file-button:hover,
+.file-button:focus-within {
+  border-color: var(--ink);
+}
+
+.file-button input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.import-notes {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--ochre);
+  font-size: 0.9rem;
+}
+
+/* Workspace: the chart and the margin notes beside it. */
+
+/* One column: the board is the page. Notes live on it as pins (or, in the chart, below it). */
+.workspace {
+  padding-top: 20px;
+}
+
+/* The chart */
+
+.chart {
+  background: var(--sheet);
+  border: 1px solid var(--staff);
+  border-radius: 6px;
+  padding: 12px 20px 16px;
+}
+
+.chart-empty {
+  margin: 12px 0;
+  color: var(--ink-soft);
+}
+
+.section {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 16px;
+  padding: 6px 8px;
+  margin: 0 -8px;
+  border-radius: 4px;
+  transition: background-color 0.3s;
+}
+
+.section + .section {
+  border-top: 1px dashed var(--staff-faint);
+}
+
+.section.is-hook .systems {
+  background: var(--hook);
+}
+
+.section.is-highlighted {
+  background: var(--ochre-wash);
+}
+
+.section.is-dragging {
+  opacity: 0.35;
+}
+
+.mark {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  align-content: start;
+}
+
+/* Section mark: the role's lattice shape. It is also the drag handle. */
+.mark-handle {
+  grid-row: 1;
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 36px;
+  cursor: grab;
+  user-select: none;
+}
+
+.mark-shape {
+  display: block;
+}
+
+.flag-warning .mark-name {
+  color: var(--ochre);
+}
+
+.flag-problem .mark-name {
+  color: var(--red);
+}
+
+.mark-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.mark-name {
+  font: 600 0.92rem/1.15 var(--display);
+}
+
+.mark-bars {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+
+.tools {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 2px;
+  margin-top: 8px;
+}
+
+.tools button {
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  font-size: 0.9rem;
+  line-height: 1;
+  color: var(--ink-soft);
+  border-color: transparent;
+  background: transparent;
+}
+
+.tools button:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--staff);
+  background: var(--sheet);
+}
+
+@media (hover: hover) {
+  /* Overlaid under the name so hidden tools take no height in the chart. */
+  .section .tools {
+    position: absolute;
+    left: 44px;
+    top: 36px;
+    margin: 0;
+    z-index: 1;
+    background: var(--sheet);
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.12s;
+  }
+  .section:hover .tools,
+  .section:focus-within .tools {
+    opacity: 1;
+  }
+}
+
+/* Bars: four per line, separated by barlines; each line starts with its bar number. */
+
+.systems {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border-radius: 3px;
+  padding: 2px 0;
+}
+
+.system {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-left: 1px solid var(--ink);
+}
+
+.bar {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  height: 28px;
+  padding: 3px 6px;
+  border: none;
+  border-right: 1px solid var(--ink);
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+  font-weight: 400;
+  position: relative;
+}
+
+.bar:hover:not(:disabled) {
+  background: var(--staff-faint);
+}
+
+/* Bar numbers at the start of each line, as on a printed chart. */
+.bar-number {
+  font: 500 0.72rem/1 var(--display);
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Section end: thin-thin double barline. Song end: thin-thick final barline. */
+.bar.end-section {
+  border-right: 4px double var(--ink);
+}
+
+.bar.end-final {
+  border-right: 5px solid var(--ink);
+  box-shadow: inset -3px 0 0 var(--sheet), inset -4px 0 0 var(--ink);
+}
+
+.bar.is-playing {
+  background: var(--ink);
+  color: var(--sheet);
+}
+
+.bar.is-playing .bar-number {
+  color: var(--sheet);
+}
+
+/* Empty slots after an incomplete phrase. Pencil-coloured when flagged; click to fill. */
+.ghost {
+  margin: 5px 4px;
+  padding: 0;
+  border: 1px dashed var(--staff);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--ink-soft);
+  font-weight: 400;
+}
+
+.ghost:hover:not(:disabled) {
+  border-style: solid;
+  border-color: var(--ink);
+}
+
+.ghost:hover::after,
+.ghost:focus-visible::after {
+  content: "+";
+  font-size: 1.1rem;
+}
+
+.flag-warning .ghost {
+  border-color: var(--ochre);
+  background: repeating-linear-gradient(-45deg, transparent 0 6px, var(--ochre-wash) 6px 8px);
+}
+
+.flag-problem .ghost {
+  border-color: var(--red);
+  background: repeating-linear-gradient(-45deg, transparent 0 6px, var(--red-wash) 6px 8px);
+}
+
+.add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--staff);
+}
+
+.add-button {
+  padding: 3px 6px;
+  font-size: 0.9rem;
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-soft);
+}
+
+.add-button:hover:not(:disabled) {
+  border-color: transparent;
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.add-more {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Margin notes */
+
+.notes-below {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: 18px 28px;
+  align-items: start;
+  margin-top: 24px;
+}
+
+.notes-below > * {
+  min-width: 0;
+}
+
+.notes-empty {
+  margin: 0;
+  padding: 14px 16px;
+  border-left: 3px solid var(--green);
+  background: var(--green-wash);
+}
+
+.note-group + .note-group {
+  margin-top: 24px;
+}
+
+.note-group h2 {
+  margin: 0 0 4px;
+  font: 600 1.25rem/1.2 var(--display);
+}
+
+details.note-group > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+details.note-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+details.note-group > summary h2 {
+  display: inline;
+  color: var(--ink-soft);
+}
+
+details.note-group > summary h2::before {
+  content: "▸ ";
+  font-size: 0.8em;
+}
+
+details.note-group[open] > summary h2::before {
+  content: "▾ ";
+}
+
+.note-group h2 .count {
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+
+.sev-problem h2 {
+  color: var(--red);
+}
+
+.sev-warning h2 {
+  color: var(--ochre);
+}
+
+.note {
+  padding: 12px 0 14px 14px;
+  border-left: 3px solid var(--staff);
+}
+
+.note + .note {
+  margin-top: 4px;
+}
+
+.sev-problem .note {
+  border-left-color: var(--red);
+}
+
+.sev-warning .note {
+  border-left-color: var(--ochre);
+}
+
+.note:focus-visible {
+  outline-offset: 0;
+}
+
+.note h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+/* Highlighter stroke under warning titles, red-pencil underline under problems. */
+.sev-warning .note h3 {
+  display: inline;
+  background: linear-gradient(transparent 55%, var(--ochre-mark) 55% 92%, transparent 92%);
+}
+
+.sev-problem .note h3 {
+  text-decoration: underline wavy var(--red);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 4px;
+}
+
+.note p {
+  margin: 6px 0 0;
+  font-size: 0.95rem;
+}
+
+.fixes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.fixes button {
+  font-size: 0.9rem;
+}
+
+.sev-problem .fixes button:first-child {
+  background: var(--ink);
+  color: var(--sheet);
+  border-color: var(--ink);
+}
+
+.note-title {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.note-title:hover:not(:disabled) {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.more {
+  margin-top: 6px;
+  font-size: 0.9rem;
+}
+
+.more summary {
+  cursor: pointer;
+  width: fit-content;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+}
+
+.more p {
+  margin: 6px 0 0;
+}
+
+.note .provenance {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 640px) {
+  .app {
+    padding-top: 20px;
+  }
+  /* The board is the main view: the verdict keeps to one short line so the board starts higher. */
+  .masthead {
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 10px;
+  }
+  .verdict-face {
+    width: 44px;
+    height: 44px;
+  }
+  .verdict {
+    justify-content: flex-start;
+    row-gap: 2px;
+  }
+  .verdict-word {
+    font-size: 1.9rem;
+  }
+  .toolbar-row {
+    flex-wrap: wrap;
+  }
+
+  .toolbar-row {
+    gap: 6px;
+  }
+  .play {
+    min-width: 0;
+    padding: 9px 12px;
+  }
+
+  .tempo-note {
+    padding-left: 6px;
+  }
+  .meter {
+    width: 52px;
+  }
+  .tempo input {
+    width: 3.4ch;
+  }
+  .toolbar-row {
+    gap: 4px;
+  }
+  .menu-button,
+  .undo {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  .duration {
+    font-size: 1.05rem;
+    padding: 0;
+  }
+  .undo-icon {
+    display: inline;
+  }
+  .tempo-unit {
+    display: none;
+  }
+  .tempo {
+    padding-right: 4px;
+  }
+  .play {
+    padding: 9px 10px;
+  }
+  .undo-label {
+    display: none;
+  }
+  .help-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .chart {
+    padding: 8px 10px 12px;
+  }
+  .section {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+  .mark {
+    grid-template-columns: auto 1fr auto;
+    grid-template-rows: auto;
+    align-items: center;
+  }
+  .tools {
+    grid-column: auto;
+    margin-top: 0;
+  }
+  .bar {
+    padding: 4px 5px;
+    height: 36px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}
+
+/* The lattice sky behind everything. */
+/* The page's sky covers the whole page and scrolls with it, so its cells stay under the board's
+   blocks. It is placed against #root, full width, not the centred .app column. */
+#root {
+  position: relative;
+  min-height: 100vh;
+}
+
+.ground {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  /* The sky is the shape table's grid: faint while reading, plain to see while placing a block. */
+  --color-tree-lattice-sky: color-mix(in srgb, var(--ink) 7%, transparent);
+}
+
+.ground.is-aiming {
+  --color-tree-lattice-sky: color-mix(in srgb, var(--ink) 22%, transparent);
+}
+
+body {
+  background: transparent;
+}
+
+.verdict-face {
+  flex: none;
+}
+
+lattice-icon {
+  --lattice-icon-size: 1.1em;
+  vertical-align: -0.15em;
+}
+
+.verdict-counts lattice-icon {
+  margin-right: 6px;
+}
+
+.tools lattice-icon {
+  --lattice-icon-size: 14px;
+}
+
+/* Shears: a pad over the whole chart while cutting, margins included, so a cut can start beside a section. */
+.chart {
+  position: relative;
+}
+
+.shears {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: transparent;
+}
+
+.shears-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.add-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.add-button .mark-shape,
+.codes .mark-shape {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+@media (max-width: 640px) {
+  .shears-label {
+    display: none;
+  }
+}
+
+/* Phones: playback on the first row, tools on the second. */
+@media (max-width: 640px) {
+  .toolbar-row {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .toolbar-actions {
+    flex-basis: 100%;
+    justify-content: flex-start;
+    gap: 6px;
+  }
+  .tempo input {
+    width: calc(3ch + 10px);
+  }
+  .meter {
+    width: 64px;
+  }
+}
+
+/* The shape table: pattern blocks on the sky, read like a page. */
+/* The board has no ground of its own: blocks sit straight on the page's sky, in its cells. */
+.table {
+  position: relative;
+  /* Not clipped: an open note may hang over the tray below. */
+  overflow: visible;
+  touch-action: none;
+  user-select: none;
+}
+
+/* One block: a bar. Strokes keep their pixel width at any scale. Its top face: */
+.block {
+  --c: var(--block-hexagon);
+  fill: var(--c);
+  stroke: color-mix(in srgb, var(--c) 72%, var(--shade));
+  stroke-width: 1px;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  cursor: grab;
+}
+
+/* What shows of a block below its top: the raised side, darker, and its shadow on the table. */
+.block-side {
+  --c: var(--block-hexagon);
+  fill: color-mix(in srgb, var(--c) 58%, var(--shade));
+  stroke: color-mix(in srgb, var(--c) 45%, var(--shade));
+  stroke-width: 1px;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.block-side.is-hollow {
+  fill: color-mix(in srgb, var(--c) 55%, var(--paper));
+  stroke: color-mix(in srgb, var(--c) 70%, var(--shade));
+}
+
+.block-hexagon,
+.block-side.block-hexagon { --c: var(--block-hexagon); }
+.block-trapezoid,
+.block-side.block-trapezoid { --c: var(--block-trapezoid); }
+.block-rhombus,
+.block-side.block-rhombus { --c: var(--block-rhombus); }
+.block-triangle,
+.block-side.block-triangle { --c: var(--block-triangle); }
+.block-square,
+.block-side.block-square { --c: var(--block-square); }
+.block-thin,
+.block-side.block-thin { --c: var(--block-thin); }
+
+/* The rarer sections reuse a shape, hollow: a tint inside, a thick edge in the shape's colour. */
+.block.is-hollow {
+  fill: color-mix(in srgb, var(--c) 16%, var(--paper));
+  stroke: var(--c);
+  stroke-width: 3px;
+}
+
+/* A section's flag and highlight are drawn once, round its whole outline, not on every block. */
+.section-outline {
+  fill: none;
+  stroke: none;
+  stroke-width: 2.5px;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.section-outline.flag-warning {
+  stroke: var(--ochre);
+}
+
+.section-outline.flag-problem {
+  stroke: var(--red);
+}
+
+.section-outline.is-highlighted {
+  stroke: var(--focus);
+  stroke-width: 3px;
+}
+
+.block.is-playing {
+  filter: brightness(1.08);
+}
+
+/* Where a short section's last phrase would finish: click to fill it. A faint fill so even a thin
+   rhombus reads as a shape waiting to be placed, not a stray dash. */
+.ghost {
+  fill: color-mix(in srgb, var(--ink) 9%, transparent);
+  stroke: var(--ink-soft);
+  stroke-width: 1.4px;
+  stroke-dasharray: 5 4;
+  vector-effect: non-scaling-stroke;
+  cursor: pointer;
+}
+
+.ghost.flag-warning {
+  stroke: var(--ochre);
+  fill: color-mix(in srgb, var(--ochre) 12%, transparent);
+}
+
+.ghost.flag-problem {
+  stroke: var(--red);
+  fill: color-mix(in srgb, var(--red) 10%, transparent);
+}
+
+.ghost:hover {
+  fill: color-mix(in srgb, var(--ink) 7%, transparent);
+}
+
+/* A section's label: its code and length, and the handle that moves the whole section. */
+.section-label {
+  font: 600 0.46px var(--display);
+  fill: var(--ink);
+  stroke: var(--paper);
+  stroke-width: 0.12px;
+  paint-order: stroke;
+  cursor: grab;
+  outline: none;
+}
+
+.section-label.flag-warning {
+  fill: var(--ochre);
+}
+
+.section-label.flag-problem {
+  fill: var(--red);
+}
+
+.section-label:focus-visible {
+  text-decoration: underline;
+  stroke: var(--focus);
+}
+
+.table-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 0 16px;
+  text-align: center;
+  color: var(--ink-soft);
+  pointer-events: none;
+}
+
+.table-empty-inner {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+}
+
+.table-empty-inner p {
+  margin: 0;
+}
+
+.table-start {
+  pointer-events: auto;
+}
+
+.table .shears {
+  z-index: 3;
+}
+
+/* The tray stays at the bottom of the screen while the board is in view: it is where blocks come
+   from and where they are thrown away. Under the pins (4), so an open note can hang over it. */
+.tray {
+  position: sticky;
+  bottom: 8px;
+  z-index: 3;
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--shade) 14%, transparent);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  min-height: 58px;
+  background: var(--sheet);
+  border: 1px solid var(--staff);
+  border-radius: 6px;
+}
+
+.tray-block {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px 5px 6px;
+  cursor: grab;
+  touch-action: none;
+  font-size: 0.88rem;
+}
+
+.tray-block .mark-shape {
+  pointer-events: none;
+}
+
+/* Table | Chart: two joined buttons, the current view underlined like a switched-on toggle. */
+.view-switch {
+  display: inline-flex;
+}
+
+.view-switch button + button {
+  margin-left: -1px;
+}
+
+.view-switch button:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.view-switch button:last-child {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.view-switch button[aria-pressed="true"] {
+  position: relative;
+  z-index: 1;
+  border-color: var(--ink);
+  box-shadow: inset 0 -3px 0 var(--ink);
+}
+
+/* The thread: how each section hands over to the next, in song order. Strong enough to follow
+   across the whole table, quieter than the blocks. */
+.thread {
+  fill: none;
+  stroke: color-mix(in srgb, var(--ink) 62%, transparent);
+  stroke-width: 2px;
+  stroke-dasharray: 5 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.thread.is-played {
+  stroke: var(--ink);
+  stroke-dasharray: none;
+}
+
+/* The hand-off being played right now: the dashes run along it. */
+.thread.is-now {
+  stroke: var(--ink);
+  stroke-width: 2.2px;
+  stroke-dasharray: 6 4;
+  animation: thread-run 0.6s linear infinite;
+}
+
+@keyframes thread-run {
+  to {
+    stroke-dashoffset: -10;
+  }
+}
+
+/* A hand-off a finding is about: drawn solid in the finding's colour. */
+.thread.flag-warning {
+  stroke: var(--ochre);
+  stroke-width: 2.4px;
+  stroke-dasharray: none;
+}
+
+.thread.flag-problem {
+  stroke: var(--red);
+  stroke-width: 2.4px;
+  stroke-dasharray: none;
+}
+
+.thread-arrow {
+  stroke: none;
+}
+
+.thread-arrow-plain {
+  fill: color-mix(in srgb, var(--ink) 62%, transparent);
+}
+
+.thread-arrow-played {
+  fill: var(--ink);
+}
+
+.thread-arrow-warning {
+  fill: var(--ochre);
+}
+
+.thread-arrow-problem {
+  fill: var(--red);
+}
+
+.order-number {
+  fill: var(--ink-soft);
+  font-weight: 500;
+}
+
+.section-label.flag-warning .order-number,
+.section-label.flag-problem .order-number {
+  fill: inherit;
+}
+
+/* Where the song is: a dot that steps from bar to bar during playback. */
+@media (prefers-reduced-motion: reduce) {
+  .thread.is-now {
+    animation: none;
+  }
+}
+
+/* Pins: a finding marked on the board where it applies, as a small raised hexagon token. */
+.pins {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.pin {
+  position: absolute;
+  width: 26px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: none;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.pin svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  display: block;
+}
+
+.pin .pin-top {
+  fill: var(--c);
+  stroke: color-mix(in srgb, var(--c) 70%, var(--shade));
+  stroke-width: 1;
+}
+
+.pin .pin-side {
+  fill: color-mix(in srgb, var(--c) 55%, var(--shade));
+}
+
+.pin text {
+  font: 700 12px var(--display);
+  fill: var(--sheet);
+}
+
+.pin.sev-problem {
+  --c: var(--red);
+}
+
+.pin.sev-warning {
+  --c: var(--ochre);
+}
+
+.pin:hover .pin-top,
+.pin.is-open .pin-top {
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+
+.pin:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* An open note: a card under its pin, edged in the finding's colour. */
+.pin-note {
+  position: absolute;
+  pointer-events: auto;
+  display: grid;
+  gap: 14px;
+  padding: 14px 16px 12px;
+  background: var(--sheet);
+  border: 1px solid var(--staff);
+  border-top: 4px solid var(--c);
+  border-radius: 4px 4px 8px 8px;
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--shade) 22%, transparent);
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.pin-note.sev-problem {
+  --c: var(--red);
+}
+
+.pin-note.sev-warning {
+  --c: var(--ochre);
+}
+
+.pin-finding + .pin-finding {
+  padding-top: 12px;
+  border-top: 1px dashed var(--staff);
+}
+
+.pin-finding h3,
+.shelf-note h3 {
+  margin: 0 28px 0 0;
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.pin-finding p,
+.shelf-note p {
+  margin: 6px 0 0;
+  font-size: 0.9rem;
+}
+
+.pin-note .fixes button:first-child {
+  background: var(--ink);
+  color: var(--sheet);
+  border-color: var(--ink);
+}
+
+.pin-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+/* The shelf: notes about the song as a whole, and the quieter notes, under the tray. */
+.shelf {
+  margin-top: 14px;
+}
+
+.shelf > summary {
+  cursor: pointer;
+  width: fit-content;
+  font: 600 1rem/1.3 var(--display);
+  color: var(--ink-soft);
+}
+
+.shelf .count {
+  font-weight: 400;
+}
+
+.shelf-notes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.shelf-note {
+  min-width: 0;
+  padding: 12px 14px;
+  background: var(--sheet);
+  border: 1px solid var(--staff);
+  border-left: 4px solid var(--staff);
+  border-radius: 6px;
+}
+
+.shelf-note.sev-problem {
+  border-left-color: var(--red);
+}
+
+.shelf-note.sev-warning {
+  border-left-color: var(--ochre);
+}
+
+/* On a phone the stuck tray keeps to one row, scrolled sideways, so it covers as little of the board as it can. */
+@media (max-width: 640px) {
+  .tray {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .tray-block,
+  .add-more {
+    flex: none;
+  }
+}
+
+/* The kit's board: it handles the pieces. Its woods are the section colours (wood 0 a chorus,
+   1 a verse, 2 a pre-chorus, 3 a bridge, 4 an intro, olive an outro); the sky under it is the
+   page's, placed to line up with it. */
+.board {
+  position: absolute;
+  display: block;
+  --color-tree-wood-0: var(--block-hexagon);
+  --color-tree-wood-1: var(--block-rhombus);
+  --color-tree-wood-2: var(--block-trapezoid);
+  --color-tree-wood-3: var(--block-triangle);
+  --color-tree-wood-4: var(--block-square);
+  --color-tree-olive: var(--block-thin);
+}
+
+/* What the app draws over the board: labels, the thread, outlines, ghosts, the bar being played. It lets
+   every pointer through to the pieces, but for the ghosts. */
+.overlay {
+  position: absolute;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.overlay .ghost {
+  pointer-events: visiblePainted;
+}
+
+/* A bar being dragged in from the tray. */
+.adding {
+  position: fixed;
+  z-index: 30;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: 0.9;
+}
+
+/* Tidy up: at the tray's far end, apart from the shapes. */
+.tray .tidy {
+  margin-left: auto;
+  flex: none;
+}
+
+/* The bar being played: the piece itself picked up off the board, in its section's own colour
+   (`--c`, from its block class), much richer than the board's pale wash. Its side shows below it,
+   a soft halo of its colour round it, and a deeper edge of the same colour. Lengths are in block
+   edges (the overlay's units). Each bar is drawn afresh, so it rises and the halo blooms as it
+   starts, then settles. */
+.bar-lit {
+  pointer-events: none;
+}
+
+.bar-lit polygon {
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.bar-lit-side polygon {
+  fill: color-mix(in srgb, var(--c) 62%, var(--shade));
+  stroke: color-mix(in srgb, var(--c) 62%, var(--shade));
+  stroke-width: 1px;
+  transform: translateY(0.05px);
+}
+
+.bar-lit-top {
+  transform: translateY(-0.1px);
+  animation: bar-rise 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.25);
+}
+
+.bar-lit-top polygon {
+  fill: color-mix(in srgb, var(--c) 82%, var(--paper));
+  /* Faint seams between the bar's triangles, as on the board. */
+  stroke: color-mix(in srgb, var(--c) 60%, var(--paper));
+  stroke-width: 0.75px;
+}
+
+.bar-lit-halo {
+  fill: none;
+  stroke: var(--c);
+  stroke-width: 9px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.32;
+  vector-effect: non-scaling-stroke;
+  animation: bar-halo 0.6s ease-out;
+}
+
+.bar-lit-edge {
+  fill: none;
+  stroke: color-mix(in srgb, var(--c) 55%, var(--shade));
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+@keyframes bar-rise {
+  0% {
+    transform: translateY(0);
+  }
+  45% {
+    transform: translateY(-0.2px);
+  }
+  100% {
+    transform: translateY(-0.1px);
+  }
+}
+
+@keyframes bar-halo {
+  0% {
+    opacity: 0.75;
+    stroke-width: 16px;
+  }
+  100% {
+    opacity: 0.32;
+    stroke-width: 9px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar-lit-top,
+  .bar-lit-halo {
+    animation: none;
+  }
+}
