@@ -1,24 +1,25 @@
 /*
  * The Harmonics tree's look (@harmonics/lattice-ui): its sky, ink, woods and
- * Roboto Mono, copied onto the page because the kit keeps its tokens inside
- * each element. Findings are alert (problem) and golden wood (warning) marks.
+ * reading face come from the kit's tokens.css and Atkinson sheet (see main.tsx),
+ * which switch to dark under prefers-color-scheme. Findings are alert
+ * (problem) and golden wood (warning) marks.
  */
 :root {
-  --paper: #f4f4f0;
-  --sheet: #ffffff;
-  --ink: #1e2219;
-  --ink-soft: #565c50;
-  --staff: #cfd1c9;
+  --paper: var(--color-tree-sky);
+  --sheet: var(--color-tree-raised);
+  --ink: var(--color-tree-ink);
+  --ink-soft: var(--color-tree-ink-soft);
+  --staff: var(--color-tree-rule);
   --staff-faint: color-mix(in srgb, var(--staff) 45%, var(--paper));
   --hook: color-mix(in srgb, #c9a65c 14%, var(--sheet));
-  --red: #a3441e;
+  --red: var(--color-tree-alert);
   --red-wash: color-mix(in srgb, var(--red) 9%, var(--sheet));
-  --ochre: #9a7b3c;
+  --ochre: var(--color-tree-wood-1);
   --ochre-mark: color-mix(in srgb, #c9a65c 45%, var(--sheet));
   --ochre-wash: color-mix(in srgb, var(--ochre) 10%, var(--sheet));
-  --green: #546d41;
+  --green: var(--color-tree-leaf);
   --green-wash: color-mix(in srgb, var(--green) 10%, var(--sheet));
-  --focus: #566c78;
+  --focus: var(--color-tree-wood-2);
   /* Pattern-block colours, softened to sit with the kit's palette. */
   --block-hexagon: #efc24b;
   --block-trapezoid: #d8664f;
@@ -30,28 +31,19 @@
   --shade: #1e2219;
 
   --display: "Roboto Mono", "Roboto Mono Variable", Menlo, monospace;
-  --text: "Roboto Mono", "Roboto Mono Variable", Menlo, monospace;
+  --text: var(--font-body-family);
 
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --paper: #1a1e21;
-    --sheet: #22272a;
-    --ink: #e6e7de;
-    --ink-soft: #a6ab9f;
-    --staff: #353a38;
+  :root {
     --staff-faint: color-mix(in srgb, var(--staff) 60%, var(--paper));
     --hook: color-mix(in srgb, #9a7b3c 18%, var(--sheet));
-    --red: #f09a74;
     --red-wash: color-mix(in srgb, var(--red) 12%, var(--sheet));
-    --ochre: #c9a65c;
     --ochre-mark: color-mix(in srgb, #9a7b3c 55%, var(--sheet));
     --ochre-wash: color-mix(in srgb, var(--ochre) 12%, var(--sheet));
-    --green: #8aa373;
     --green-wash: color-mix(in srgb, var(--green) 14%, var(--sheet));
-    --focus: #8aa5b3;
     --block-hexagon: #d5aa3d;
     --block-trapezoid: #c75b44;
     --block-rhombus: #6487c7;
@@ -61,32 +53,6 @@
     --shade: #050606;
     color-scheme: dark;
   }
-}
-
-:root[data-theme="dark"] {
-  --paper: #1a1e21;
-  --sheet: #22272a;
-  --ink: #e6e7de;
-  --ink-soft: #a6ab9f;
-  --staff: #353a38;
-  --staff-faint: color-mix(in srgb, var(--staff) 60%, var(--paper));
-  --hook: color-mix(in srgb, #9a7b3c 18%, var(--sheet));
-  --red: #f09a74;
-  --red-wash: color-mix(in srgb, var(--red) 12%, var(--sheet));
-  --ochre: #c9a65c;
-  --ochre-mark: color-mix(in srgb, #9a7b3c 55%, var(--sheet));
-  --ochre-wash: color-mix(in srgb, var(--ochre) 12%, var(--sheet));
-  --green: #8aa373;
-  --green-wash: color-mix(in srgb, var(--green) 14%, var(--sheet));
-  --focus: #8aa5b3;
-  --block-hexagon: #d5aa3d;
-  --block-trapezoid: #c75b44;
-  --block-rhombus: #6487c7;
-  --block-triangle: #62a058;
-  --block-square: #d9813a;
-  --block-thin: #b99d79;
-  --shade: #050606;
-  color-scheme: dark;
 }
 
 * {
