@@ -8,6 +8,7 @@
         "@harmonics/lattice-ui": "^0.9.1",
         "react": "^19.3.1",
         "react-dom": "^19.3.1",
+        "smplr": "^1.1.0",
       },
       "devDependencies": {
         "@playwright/test": "^1.64.1",
@@ -146,6 +147,8 @@
     "rolldown": ["rolldown@1.2.15", "", { "dependencies": { "@oxc-project/types": "=0.155.0", "@rolldown/pluginutils": "^1.0.0" }, "optionalDependencies": { "@rolldown/binding-android-arm-eabi": "1.2.15", "@rolldown/binding-android-arm64": "1.2.15", "@rolldown/binding-darwin-arm64": "1.2.15", "@rolldown/binding-darwin-x64": "1.2.15", "@rolldown/binding-freebsd-x64": "1.2.15", "@rolldown/binding-linux-arm-gnueabihf": "1.2.15", "@rolldown/binding-linux-arm64-gnu": "1.2.15", "@rolldown/binding-linux-arm64-musl": "1.2.15", "@rolldown/binding-linux-ppc64-gnu": "1.2.15", "@rolldown/binding-linux-s390x-gnu": "1.2.15", "@rolldown/binding-linux-x64-gnu": "1.2.15", "@rolldown/binding-linux-x64-musl": "1.2.15", "@rolldown/binding-openharmony-arm64": "1.2.15", "@rolldown/binding-win32-arm64-msvc": "1.2.15", "@rolldown/binding-win32-x64-msvc": "1.2.15" }, "bin": "bin/cli.mjs" }, "sha512-6odND+fel5zVw3I4Yc2e69gvguDnX0CAAGiNDZSq4ik5WUcaLrkD2GLuog0XcODbor31hZ5ayEMgVDno+KPV5g=="],
 
     "scheduler": ["scheduler@0.28.0", "", {}, "sha512-juorfCmIkIw8tT+p5BXSm6PJjQF/ycEYmKyzURCIt/RaZIhL+PulbQ9Yu2z1HdOJDdqDTlxA1+xKBmHXJsczAw=="],
+
+    "smplr": ["smplr@1.1.0", "", {}, "sha512-VW2FeDdSgBU3cg9pofUYvXB1Nb0iMXurbAnUlpgWfOklw/3JGP5vEjKdq7qGaEwL8rzQTMjdDu64AqpR2ul1bQ=="],
 
     "source-map-js": ["source-map-js@1.2.2", "", {}, "sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw=="],
 
