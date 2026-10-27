@@ -1,5 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import "@harmonics/lattice-ui/tokens.css";
+import "@harmonics/lattice-ui/fonts/atkinson-hyperlegible-next/index.css";
 import "@harmonics/lattice-ui/define";
 import { defineLatticeBoard } from "@harmonics/lattice-ui/board";
 import type {} from "@harmonics/lattice-ui/react";

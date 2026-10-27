@@ -125,13 +125,13 @@ The UI is built on [`@harmonics/lattice-ui`](https://www.npmjs.com/package/@harm
   - Each section's shears button and − do the same from the keyboard.
   - On the shape table it takes a bar off every section the stroke goes clean through, in at one side and out at another (`crossesRing`, `crossesCell`); a stroke that stays inside, or is cut short, cuts nothing.
 - **`<lattice-icon>`** marks the shears controls and "Nothing to fix".
-- **Colours and type:** the app's colours are the kit's `--color-tree-*` values (light and dark), and its single typeface is the kit's Roboto Mono.
+- **Colours and type:** the app's colours are the kit's `--color-tree-*` values (light and dark), from its `tokens.css`; body text is set in the kit's Atkinson Hyperlegible Next (upright only, from `fonts/atkinson-hyperlegible-next/`), and headings, counts and notation in Roboto Mono.
 
 ## The table's geometry
 
 `src/core/lattice.ts` lays the song out as `<lattice-board>` pieces (`flow`, `sectionParts`), reads the song back from them (`songOf`: sections, bars, reading order, whether every bar is whole), and makes the app's own edits (`withBars` for + and −, ghosts and shears; `dropBar` for the tray; `sync` keeps pieces where they are when only lengths change elsewhere). `src/core/blocks.ts` keeps the shared drawing geometry: a shape's raised side and the thread between sections.
 
-The app uses `@harmonics/lattice-ui` (`^0.9.1`) for its board, face, page background, shears and icons.
+The app uses `@harmonics/lattice-ui` (`^0.11.0`) for its board, face, page background, shears and icons.
 
 ## Development
 
