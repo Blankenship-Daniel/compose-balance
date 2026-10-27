@@ -1,0 +1,86 @@
+{
+ "meta": {
+  "name": "Black and Blue Basses, dark black, plucked",
+  "license": "CC0-1.0 (Karoryfer Samples)",
+  "source": "https://github.com/sfzinstruments/karoryfer.black-and-blue-basses/tree/6e7d674cdb41be7a54dbccb15472401ad01099b9"
+ },
+ "samples": {
+  "baseUrl": "./",
+  "formats": [
+   "m4a"
+  ]
+ },
+ "defaults": {
+  "ampRelease": 0.3
+ },
+ "groups": [
+  {
+   "regions": [
+    {
+     "sample": "black-and-blue-bass-0",
+     "pitch": 28,
+     "keyRange": [
+      22,
+      29
+     ]
+    },
+    {
+     "sample": "black-and-blue-bass-1",
+     "pitch": 31,
+     "keyRange": [
+      30,
+      32
+     ]
+    },
+    {
+     "sample": "black-and-blue-bass-2",
+     "pitch": 34,
+     "keyRange": [
+      33,
+      35
+     ]
+    },
+    {
+     "sample": "black-and-blue-bass-3",
+     "pitch": 37,
+     "keyRange": [
+      36,
+      38
+     ]
+    },
+    {
+     "sample": "black-and-blue-bass-4",
+     "pitch": 40,
+     "keyRange": [
+      39,
+      41
+     ]
+    },
+    {
+     "sample": "black-and-blue-bass-5",
+     "pitch": 43,
+     "keyRange": [
+      42,
+      44
+     ]
+    },
+    {
+     "sample": "black-and-blue-bass-6",
+     "pitch": 46,
+     "keyRange": [
+      45,
+      47
+     ]
+    },
+    {
+     "sample": "black-and-blue-bass-7",
+     "pitch": 49,
+     "keyRange": [
+      48,
+      55
+     ]
+    }
+   ]
+  }
+ ]
+}

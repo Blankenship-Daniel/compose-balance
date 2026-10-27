@@ -23,6 +23,28 @@ const HARTE: Record<string, string> = {
   Am: "A:min",
 };
 
+/**
+ * A run of Billboard bars, "| A:min | F:maj . . G:maj |", optionally repeated ("x4").
+ * Commas only appear inside a chord's parentheses ("B:sus4(b7,9)"), so a run never
+ * swallows the labels around it.
+ */
+const BAR_RUN = /\|(?:(?:[^|,()]|\([^)|]*\))*\|)+(?:\s*x(\d+))?/g;
+
+/** Each bar on an annotation line, repeats written out: its chord tokens, one space apart. */
+export function lineBars(line: string): string[] {
+  const bars: string[] = [];
+  for (const m of line.matchAll(BAR_RUN)) {
+    const run = m[0]
+      .replace(/\s*x\d+$/, "")
+      .split("|")
+      .slice(1, -1)
+      // "(2/4)" marks a bar in another metre; the app plays every bar the same length.
+      .map((bar) => bar.replace(/\(\d+\/\d+\)/g, "").trim().replace(/\s+/g, " "));
+    for (let i = 0; i < Number(m[1] ?? 1); i++) bars.push(...run);
+  }
+  return bars;
+}
+
 /** SALAMI function labels, their documented synonyms, and near-synonyms mapped onto this app's functions. */
 const FUNCTIONS: Record<string, Role> = {
   ...Object.fromEntries(Object.entries(SALAMI_LABEL).map(([role, label]) => [label, role as Role])),
@@ -78,7 +100,7 @@ export function toBillboard(sections: Section[], opts: Options, title = "Untitle
   let bar = 0;
   sections.forEach((s, i) => {
     for (let b = 0; b < s.bars; b += 4) {
-      const chords = Array.from({ length: Math.min(4, s.bars - b) }, (_, k) => HARTE[LOOPS[s.role][(b + k) % 4]!]!);
+      const chords = Array.from({ length: Math.min(4, s.bars - b) }, (_, k) => s.chords?.[b + k] || HARTE[LOOPS[s.role][(b + k) % 4]!]!);
       const cells = `| ${chords.join(" | ")} |`;
       const head = b === 0 ? `${labels[i]}, ${SALAMI_LABEL[s.role]}, ` : "";
       out.push(`${seconds(secondsFor(bar + b, opts))}\t${head}${cells}`);
@@ -100,6 +122,7 @@ export interface ImportResult {
 interface Pending {
   role: Role | null;
   bars: number;
+  chords: string[];
   start: number;
   end?: number;
 }
@@ -138,15 +161,13 @@ export function fromAnnotation(text: string, opts: Options): ImportResult {
       continue;
     }
     const time = Number(m[1]);
-    let barsOnLine = 0;
+    const bars = lineBars(m[2]!);
     let role: Role | null | undefined; // undefined = no new section on this line
     let boundary = false;
 
-    for (const item of m[2]!.split(",").map((x) => x.trim()).filter(Boolean)) {
+    for (const item of m[2]!.replace(BAR_RUN, "").split(",").map((x) => x.trim()).filter(Boolean)) {
       const lower = item.toLowerCase().replace(/[()]/g, "").trim();
-      if (item.startsWith("|")) {
-        barsOnLine += Math.max(0, (item.match(/\|/g)?.length ?? 1) - 1);
-      } else if (lower === "silence" || lower === "end" || /^z'*$/.test(item)) {
+      if (lower === "silence" || lower === "end" || /^z'*$/.test(item)) {
         close(time);
         role = undefined;
         boundary = false;
@@ -167,10 +188,13 @@ export function fromAnnotation(text: string, opts: Options): ImportResult {
 
     if (boundary) {
       close(time);
-      current = { role: role ?? null, bars: 0, start: time };
+      current = { role: role ?? null, bars: 0, chords: [], start: time };
       pending.push(current);
     }
-    if (current) (current as Pending).bars += barsOnLine;
+    if (current) {
+      (current as Pending).bars += bars.length;
+      (current as Pending).chords.push(...bars);
+    }
   }
 
   if (unknown.size) notes.push(`Ignored labels this app doesn't model: ${[...unknown].join(", ")}.`);
@@ -194,7 +218,9 @@ export function fromAnnotation(text: string, opts: Options): ImportResult {
       untyped++;
     }
     // Consecutive lines of one section can repeat its function (e.g. "B, verse" twice for a long verse).
-    sections.push({ role, bars: Math.min(64, bars), intentional: false });
+    const section: Section = { role, bars: Math.min(64, bars), intentional: false };
+    if (p.chords.some((c) => /[A-G]/.test(c))) section.chords = p.chords.slice(0, section.bars);
+    sections.push(section);
   });
 
   if (estimated)

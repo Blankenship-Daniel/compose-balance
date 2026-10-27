@@ -1,0 +1,158 @@
+{
+ "meta": {
+  "name": "Osiris Piano, natural",
+  "license": "CC0-1.0 (Versilian Studios and Karoryfer Samples)",
+  "source": "https://github.com/sfzinstruments/Osiris_Piano/tree/18c6afccb60cff458edbf7c394571783e074e1e9"
+ },
+ "samples": {
+  "baseUrl": "./",
+  "formats": [
+   "m4a"
+  ]
+ },
+ "defaults": {
+  "ampRelease": 0.3
+ },
+ "groups": [
+  {
+   "regions": [
+    {
+     "sample": "osiris-piano-0",
+     "pitch": 41,
+     "keyRange": [
+      35,
+      43
+     ]
+    },
+    {
+     "sample": "osiris-piano-1",
+     "pitch": 45,
+     "keyRange": [
+      44,
+      46
+     ]
+    },
+    {
+     "sample": "osiris-piano-2",
+     "pitch": 48,
+     "keyRange": [
+      47,
+      49
+     ]
+    },
+    {
+     "sample": "osiris-piano-3",
+     "pitch": 50,
+     "keyRange": [
+      50,
+      51
+     ]
+    },
+    {
+     "sample": "osiris-piano-4",
+     "pitch": 53,
+     "keyRange": [
+      52,
+      55
+     ]
+    },
+    {
+     "sample": "osiris-piano-5",
+     "pitch": 57,
+     "keyRange": [
+      56,
+      58
+     ]
+    },
+    {
+     "sample": "osiris-piano-6",
+     "pitch": 60,
+     "keyRange": [
+      59,
+      61
+     ]
+    },
+    {
+     "sample": "osiris-piano-7",
+     "pitch": 62,
+     "keyRange": [
+      62,
+      63
+     ]
+    },
+    {
+     "sample": "osiris-piano-8",
+     "pitch": 65,
+     "keyRange": [
+      64,
+      67
+     ]
+    },
+    {
+     "sample": "osiris-piano-9",
+     "pitch": 69,
+     "keyRange": [
+      68,
+      70
+     ]
+    },
+    {
+     "sample": "osiris-piano-10",
+     "pitch": 72,
+     "keyRange": [
+      71,
+      73
+     ]
+    },
+    {
+     "sample": "osiris-piano-11",
+     "pitch": 74,
+     "keyRange": [
+      74,
+      75
+     ]
+    },
+    {
+     "sample": "osiris-piano-12",
+     "pitch": 77,
+     "keyRange": [
+      76,
+      79
+     ]
+    },
+    {
+     "sample": "osiris-piano-13",
+     "pitch": 81,
+     "keyRange": [
+      80,
+      82
+     ]
+    },
+    {
+     "sample": "osiris-piano-14",
+     "pitch": 84,
+     "keyRange": [
+      83,
+      85
+     ]
+    },
+    {
+     "sample": "osiris-piano-15",
+     "pitch": 86,
+     "keyRange": [
+      86,
+      87
+     ]
+    },
+    {
+     "sample": "osiris-piano-16",
+     "pitch": 89,
+     "keyRange": [
+      88,
+      96
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -20,6 +20,12 @@ export interface Section {
   bars: number;
   /** Marked with "!" in notation: the irregularity is a deliberate choice. */
   intentional: boolean;
+  /**
+   * A real song's chords, one entry per bar in Harte spelling, split evenly across
+   * the bar: "A:min", "F:maj . . G:maj" ("." holds the chord before), "N" for none.
+   * Bars past the end of the list play the role's placeholder loop.
+   */
+  chords?: string[];
 }
 
 export type FormType =

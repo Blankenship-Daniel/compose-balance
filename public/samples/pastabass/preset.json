@@ -1,0 +1,86 @@
+{
+ "meta": {
+  "name": "Pastabass, spaghetti",
+  "license": "CC0-1.0 (Karoryfer Samples)",
+  "source": "https://github.com/sfzinstruments/karoryfer.pastabass/tree/90135cd026db5d4fa0fe538240b4203f085f5244"
+ },
+ "samples": {
+  "baseUrl": "./",
+  "formats": [
+   "m4a"
+  ]
+ },
+ "defaults": {
+  "ampRelease": 0.3
+ },
+ "groups": [
+  {
+   "regions": [
+    {
+     "sample": "pastabass-0",
+     "pitch": 28,
+     "keyRange": [
+      22,
+      29
+     ]
+    },
+    {
+     "sample": "pastabass-1",
+     "pitch": 31.020000000000003,
+     "keyRange": [
+      30,
+      32
+     ]
+    },
+    {
+     "sample": "pastabass-2",
+     "pitch": 34,
+     "keyRange": [
+      33,
+      35
+     ]
+    },
+    {
+     "sample": "pastabass-3",
+     "pitch": 37.04,
+     "keyRange": [
+      36,
+      38
+     ]
+    },
+    {
+     "sample": "pastabass-4",
+     "pitch": 40.06,
+     "keyRange": [
+      39,
+      41
+     ]
+    },
+    {
+     "sample": "pastabass-5",
+     "pitch": 43,
+     "keyRange": [
+      42,
+      44
+     ]
+    },
+    {
+     "sample": "pastabass-6",
+     "pitch": 46.02,
+     "keyRange": [
+      45,
+      47
+     ]
+    },
+    {
+     "sample": "pastabass-7",
+     "pitch": 49.02,
+     "keyRange": [
+      48,
+      55
+     ]
+    }
+   ]
+  }
+ ]
+}

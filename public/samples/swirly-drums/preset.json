@@ -1,0 +1,105 @@
+{
+ "meta": {
+  "name": "Swirly Drums, basic kit",
+  "license": "CC0-1.0 (Karoryfer Samples)",
+  "source": "https://github.com/sfzinstruments/karoryfer.swirly-drums/tree/c40dafe0011cb2e54c0c220ff0fa308a11fc60f5"
+ },
+ "samples": {
+  "baseUrl": "./",
+  "formats": [
+   "m4a"
+  ]
+ },
+ "defaults": {
+  "ampRelease": 0.05
+ },
+ "groups": [
+  {
+   "regions": [
+    {
+     "sample": "kick",
+     "key": 36,
+     "keyRange": [
+      36,
+      36
+     ]
+    },
+    {
+     "sample": "snare",
+     "key": 38,
+     "keyRange": [
+      38,
+      38
+     ]
+    },
+    {
+     "sample": "hihat",
+     "key": 42,
+     "keyRange": [
+      42,
+      42
+     ]
+    },
+    {
+     "sample": "hihat-open",
+     "key": 46,
+     "keyRange": [
+      46,
+      46
+     ]
+    },
+    {
+     "sample": "crash",
+     "key": 49,
+     "keyRange": [
+      49,
+      49
+     ]
+    },
+    {
+     "sample": "tom-1",
+     "key": 47,
+     "keyRange": [
+      47,
+      47
+     ]
+    },
+    {
+     "sample": "tom-2",
+     "key": 45,
+     "keyRange": [
+      45,
+      45
+     ]
+    },
+    {
+     "sample": "tom-3",
+     "key": 41,
+     "keyRange": [
+      41,
+      41
+     ]
+    },
+    {
+     "sample": "tom-4",
+     "key": 41,
+     "keyRange": [
+      41,
+      41
+     ]
+    }
+   ]
+  }
+ ],
+ "aliases": {
+  "kick": 36,
+  "snare": 38,
+  "hihat": 42,
+  "hihat-open": 46,
+  "crash": 49,
+  "tom-1": 47,
+  "tom-2": 45,
+  "tom-3": 41,
+  "tom-4": 41
+ }
+}

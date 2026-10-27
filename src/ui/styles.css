@@ -1947,7 +1947,8 @@ lattice-icon {
   .toolbar button,
   .toolbar .tempo,
   .toolbar .meter,
-  .toolbar .era {
+  .toolbar .era,
+  .toolbar .sound {
     min-height: 44px;
   }
   .toolbar .undo,
@@ -1992,4 +1993,96 @@ lattice-icon {
     min-height: 44px;
     min-width: 44px;
   }
+}
+
+/* Loading a real hit */
+
+.song-query {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 8px 10px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--sheet);
+  border: 1px solid var(--staff);
+  border-radius: 4px;
+}
+
+.song-results {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  max-height: 22rem;
+  overflow-y: auto;
+}
+
+.song-results li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.song-results li[aria-selected="true"] {
+  background: var(--staff-faint);
+}
+
+.song-title {
+  font-weight: 600;
+}
+
+.song-artist {
+  color: var(--ink-soft);
+}
+
+.song-meta {
+  margin-left: auto;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.song-sources {
+  margin-top: 10px;
+  font-size: 0.85rem;
+}
+
+.chord-source {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .chord-source {
+    display: none;
+  }
+}
+
+/* Instruments panel */
+
+.instrument-parts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px 20px;
+  margin-top: 12px;
+}
+
+.instrument-part {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.instrument-part-name {
+  font-weight: 600;
+}
+
+.instrument-part .hint {
+  margin: 0;
+  font-size: 0.85rem;
 }

@@ -1,17 +1,22 @@
 /**
- * Builds a corpus summary in src/core/corpus/ from either dataset. Only
- * aggregate counts are written.
+ * Builds a corpus summary in src/core/corpus/ from either dataset: aggregate
+ * counts, plus a list of each song's title, artist, year and form for the
+ * app's song search.
  *
  * - McGill Billboard: a folder of salami_chords files (one per song, as in
  *   CoCoPops-Billboard-legacy's OriginalData/SalamiFiles) → billboard.json
  * - Harmonix Set: its `dataset` folder, with segments/ and
  *   beats_and_downbeats/ (github.com/urinieto/harmonixset, MIT) → harmonix.json
  *
- *   node scripts/corpus-stats.ts <dir>
+ *   node scripts/corpus-stats.ts <dir> [--years <harmonix-years.json>]
+ *
+ * Harmonix has no release years; scripts/harmonix-years.py looks them up on MusicBrainz.
  */
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { fromAnnotation } from "../src/core/salami.ts";
+import { format } from "../src/core/parse.ts";
+import { formatMeter } from "../src/core/meter.ts";
+import { fromAnnotation, lineBars } from "../src/core/salami.ts";
 import { type Meter, parseMeter, pulsesPerBar } from "../src/core/meter.ts";
 import { DEFAULT_OPTIONS } from "../src/core/score.ts";
 import { repeats, secondsFor, startBar, totalBars } from "../src/core/stats.ts";
@@ -20,6 +25,12 @@ import { gridScores } from "../src/core/rules/phrase.ts";
 import type { Options, Role, Section } from "../src/core/types.ts";
 
 export interface Song {
+  /** Stable across rebuilds, for links: "bb0003" (Billboard file 0003), "hx0001" (Harmonix 0001_12step). */
+  id: string;
+  title: string;
+  artist: string;
+  /** Billboard: the first chart date. Harmonix: the first release on MusicBrainz, when looked up. */
+  year?: number;
   sections: Section[];
   /** The recording's own meter, and its tempo measured from its bars' timestamps. */
   opts: Options;
@@ -35,14 +46,14 @@ export function corpusKind(dir: string): CorpusName {
 const SOURCES: Record<CorpusName, (songs: number) => string> = {
   billboard: (n) => `McGill Billboard corpus (Burgoyne, Wild & Fujinaga, ISMIR 2011; CC0), ${n} Hot 100 songs, 1958–1991`,
   harmonix: (n) =>
-    `Harmonix Set (Nieto et al., ISMIR 2019; MIT License, © 2019 Oriol Nieto), ${n} Western pop songs, mostly 1990s–2010s`,
+    `Harmonix Set (Nieto et al., ISMIR 2019; MIT License, © 2019 Oriol Nieto), ${n} Western pop songs, mostly 2000s–2010s`,
 };
 
 /** Average tempo over the barred lines: their bars against the time they span. */
 function tempoOf(text: string, opts: Options): number | undefined {
   const lines = text.split(/\r?\n/).flatMap((l) => {
     const m = /^(-?[\d.eE+-]+)\s+(.*)$/.exec(l.trim());
-    return m ? [{ time: Number(m[1]), bars: Math.max(0, (m[2]!.match(/\|/g)?.length ?? 0) - (m[2]!.match(/\|\s*,|\|\s*$/g)?.length ?? 0)) }] : [];
+    return m ? [{ time: Number(m[1]), bars: lineBars(m[2]!).length }] : [];
   });
   const first = lines.findIndex((l) => l.bars > 0);
   const last = lines.findLastIndex((l) => l.bars > 0);
@@ -79,8 +90,37 @@ function harmonixRole(label: string): Role {
   return HARMONIX_ROLES.find(([re]) => re.test(core))?.[1] ?? "interlude";
 }
 
+/** One CSV line's fields; quoted fields may hold commas and doubled quotes. */
+function csvFields(line: string): string[] {
+  const out: string[] = [];
+  let field = "";
+  let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i]!;
+    if (quoted) {
+      if (c === '"' && line[i + 1] === '"') (field += '"'), i++;
+      else if (c === '"') quoted = false;
+      else field += c;
+    } else if (c === '"') quoted = true;
+    else if (c === ",") out.push(field), (field = "");
+    else field += c;
+  }
+  return [...out, field];
+}
+
+/** The set was published in 2019; a later MusicBrainz year is a reissue. */
+const HARMONIX_PUBLISHED = 2019;
+
 /** Each segment's bars are the downbeats that fall inside it. */
-function loadHarmonix(dir: string): Song[] {
+function loadHarmonix(dir: string, years: Record<string, number | null> = {}): Song[] {
+  const [head, ...lines] = readFileSync(join(dir, "metadata.csv"), "utf8").split(/\r?\n/).filter(Boolean);
+  const cols = csvFields(head!);
+  const meta = new Map(
+    lines.map((l) => {
+      const f = csvFields(l);
+      return [f[cols.indexOf("File")]!, { title: f[cols.indexOf("Title")]!, artist: f[cols.indexOf("Artist")]! }];
+    }),
+  );
   const songs: Song[] = [];
   for (const file of readdirSync(join(dir, "segments")).filter((f) => f.endsWith(".txt")).sort()) {
     const rows = (path: string) =>
@@ -110,26 +150,71 @@ function loadHarmonix(dir: string): Song[] {
     const meter = parseMeter(beatsPerBar === 6 ? "6/8" : `${beatsPerBar}/4`) as Meter;
     const seconds = downbeats[downbeats.length - 1]! - downbeats[0]!;
     const bpm = Math.round(((downbeats.length - 1) * pulsesPerBar(meter) * 60) / seconds);
-    songs.push({ sections, opts: { ...DEFAULT_OPTIONS, meter, bpm } });
+    const id = file.replace(/\.txt$/, "");
+    const year = years[id] ?? undefined;
+    songs.push({
+      id: `hx${id.split("_")[0]}`,
+      ...(meta.get(id) ?? { title: id, artist: "" }),
+      year: year !== undefined && year <= HARMONIX_PUBLISHED ? year : undefined,
+      sections,
+      opts: { ...DEFAULT_OPTIONS, meter, bpm },
+    });
   }
   return songs;
 }
 
-export function loadCorpus(dir: string): Song[] {
-  if (corpusKind(dir) === "harmonix") return loadHarmonix(dir);
+/** Billboard chart years by file id, from billboard-2.0-index.csv beside the files' folder. */
+function chartYears(dir: string): Map<number, number> {
+  const index = join(dir, "..", "billboard-2.0-index.csv");
+  if (!existsSync(index)) return new Map();
+  return new Map(
+    readFileSync(index, "utf8")
+      .split(/\r?\n/)
+      .slice(1)
+      .flatMap((l) => {
+        const [id, date] = l.split("\t");
+        return id && /^\d{4}/.test(date ?? "") ? [[Number(id), Number(date!.slice(0, 4))] as [number, number]] : [];
+      }),
+  );
+}
+
+export function loadCorpus(dir: string, years?: Record<string, number | null>): Song[] {
+  if (corpusKind(dir) === "harmonix") return loadHarmonix(dir, years);
+  const charted = chartYears(dir);
   const songs: Song[] = [];
-  const seen = new Set<string>();
+  const seen = new Map<string, Song>();
   for (const file of readdirSync(dir).filter((f) => f.endsWith(".txt")).sort()) {
     const text = readFileSync(join(dir, file), "utf8");
-    // The corpus annotates some songs twice (they charted twice); count each once.
-    const key = [/^# title:(.*)$/m, /^# artist:(.*)$/m].map((re) => re.exec(text)?.[1]?.trim().toLowerCase()).join("|");
-    if (seen.has(key)) continue;
-    seen.add(key);
+    const [title, artist] = [/^# title:(.*)$/m, /^# artist:(.*)$/m].map((re) => re.exec(text)?.[1]?.trim() ?? "") as [string, string];
+    const year = charted.get(Number(file.replace(/\.txt$/, "")));
+    // The corpus annotates some songs twice (they charted twice); count each once, at its first chart year.
+    const key = `${title}|${artist}`.toLowerCase();
+    const earlier = seen.get(key);
+    if (earlier) {
+      if (year !== undefined && (earlier.year === undefined || year < earlier.year)) earlier.year = year;
+      continue;
+    }
     const { sections, meter } = fromAnnotation(text, DEFAULT_OPTIONS);
     const opts = { ...DEFAULT_OPTIONS, meter: meter ?? DEFAULT_OPTIONS.meter };
-    if (sections.length) songs.push({ sections, opts: { ...opts, bpm: tempoOf(text, opts) ?? opts.bpm } });
+    const song: Song = { id: `bb${file.replace(/\.txt$/, "")}`, title, artist, year, sections, opts: { ...opts, bpm: tempoOf(text, opts) ?? opts.bpm } };
+    seen.set(key, song);
+    if (sections.length) songs.push(song);
   }
   return songs;
+}
+
+/** One row per song for the app's search (src/core/songs.ts). */
+function songList(songs: Song[]) {
+  return songs.map(({ id, title, artist, year, sections, opts }) => ({
+    id,
+    title,
+    artist,
+    ...(year !== undefined && { year }),
+    bpm: opts.bpm,
+    meter: formatMeter(opts.meter),
+    form: format(sections),
+    ...(sections.some((s) => s.chords) && { chords: sections.flatMap((s) => s.chords ?? Array<string>(s.bars).fill("")).join("|") }),
+  }));
 }
 
 function percentiles(values: number[], ps: number[]): Record<string, number> {
@@ -198,25 +283,34 @@ export function corpusStats(songs: Song[], name: CorpusName) {
 }
 
 if (import.meta.main) {
-  const dir = process.argv[2];
-  if (!dir) {
-    console.error("usage: node scripts/corpus-stats.ts <billboard-dir | harmonix-dataset-dir>");
+  const [dir, flag, yearsFile] = process.argv.slice(2);
+  if (!dir || (flag !== undefined && (flag !== "--years" || !yearsFile))) {
+    console.error("usage: node scripts/corpus-stats.ts <billboard-dir | harmonix-dataset-dir> [--years <harmonix-years.json>]");
     process.exit(1);
   }
   const name = corpusKind(dir);
-  const songs = loadCorpus(dir);
+  const songs = loadCorpus(dir, yearsFile ? JSON.parse(readFileSync(yearsFile, "utf8")) : undefined);
   const base = corpusStats(songs, name);
   // Scoring needs the length counts just measured, so it runs on them as a second pass.
   const measured = new Corpus(name, { ...base, songIrregularity: [], warnScore: 0 });
   const scored = songs.map((s) => gridScores(s.sections, measured));
-  const songIrregularity = scored.map((g) => Number(g.total.toFixed(2))).sort((a, b) => a - b);
-  // R2 warns on a section more irregular than the worst section of 3 in 4 songs. Rounded down,
-  // so a section scoring exactly the 75th percentile still reaches it.
-  const worst = scored.map((g) => Math.max(0, ...g.scores)).sort((a, b) => a - b);
-  const warnScore = Math.floor(worst[Math.floor(worst.length * 0.75)]! * 100) / 100;
+  // Rounded up, so a song never scores above its own stored value and crosses the limit it set.
+  const songIrregularity = scored.map((g) => Math.ceil(g.total * 100 - 1e-9) / 100).sort((a, b) => a - b);
+  // R2 warns on a section about as irregular as the worst section of 1 in 4 songs. Many songs
+  // share a score (every lone 7-bar chorus scores alike), so take the cutoff whose share of
+  // songs reaching it is nearest 25%, not the 75th percentile, which can land inside a tie and
+  // warn on far more. Rounded down, so a section scoring exactly a cutoff still reaches it.
+  const worst = scored.map((g) => Math.max(0, ...g.scores)).filter((w) => w > 0);
+  const reaching = (cut: number) => worst.filter((w) => w >= cut).length / songs.length;
+  const warnScore = [...new Set(worst.map((w) => Math.floor(w * 100) / 100))].reduce((best, cut) =>
+    Math.abs(reaching(cut) - 0.25) < Math.abs(reaching(best) - 0.25) ? cut : best,
+  );
   const onGrid = songs.filter((s) => s.sections.every((x) => x.bars % 4 === 0)).length;
   const onGridSongs = Number((onGrid / Math.max(1, songs.length)).toFixed(4));
   const stats = { ...base, songIrregularity, warnScore, onGridSongs };
   writeFileSync(new URL(`../src/core/corpus/${name}.json`, import.meta.url), JSON.stringify(stats, null, 1) + "\n");
-  console.log(`${stats.songs} songs → src/core/corpus/${name}.json`);
+  const list = songList(songs);
+  writeFileSync(new URL(`../src/core/corpus/songs-${name}.json`, import.meta.url), JSON.stringify(list) + "\n");
+  const dated = list.filter((s) => s.year !== undefined).length;
+  console.log(`${stats.songs} songs → src/core/corpus/${name}.json and songs-${name}.json (${dated} with a year)`);
 }

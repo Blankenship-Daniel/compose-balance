@@ -105,12 +105,12 @@ Sources and caveats are in [docs/research.md](docs/research.md).
   - quarter notes in `/4` meters
   - eighth notes in odd `/8` meters (`7/8` at 210 means 210 eighths a minute)
   - dotted quarters in compound meters (`6/8`, `9/8`, `12/8`)
-- **Era:** the toolbar's picker sets which hits the notes compare against: modern (Harmonix Set, about 1990s–2010s, the default) or classic (McGill Billboard, 1958–1991). Links that don't name an era use the modern one.
+- **Era:** the toolbar's picker sets which hits the notes compare against: modern (Harmonix Set, mostly 2000s–2010s, the default) or classic (McGill Billboard, 1958–1991). Links that don't name an era use the modern one.
 - **Length:** the toolbar shows the song's length at the current tempo and time signature, and elapsed / total while playing.
-- **Play:** press **Play** or Space, or click any bar. The chords are placeholders so you can hear the form.
-- **⋯ menu:** examples, import or export (SALAMI / Billboard), and "How this works".
+- **Play:** press **Play** or Space, or click any bar. **Band** (the default) plays sampled instruments, picked per part in ⋯ → **Instruments** (chords, bass, drums and an optional pad that holds the chords in the fuller sections; about 40 to choose from, from grand pianos and electric guitars to drum machines, acoustic kits, strings and saxophones): each section gets its own groove, from a sparse intro to a full chorus with a crash, and a drum fill leads into the next section. The first play loads the samples (a few seconds; the button says Loading…); if they can't load, it plays the simple sound instead. **Click** plays that simple sound: plain chords and a click on every beat, louder on section starts and 4-bar phrases. The chords are placeholders so you can hear the form, except in a loaded classic hit (or an imported Billboard file), whose bars play the song's real chords. Those chords stay with their sections when you move, resize or retype them; bars you add play placeholders. A link to a loaded hit adds `&song=bb0473` (its Billboard file), so it opens with the real chords too.
+- **⋯ menu:** examples, **Load a real hit** (search about 1,650 songs from both corpora by title or artist; each loads with its own tempo, time signature and era, and the 739 classic hits play their real chords), import or export (SALAMI / Billboard), and "How this works".
 - **Notes:** these are folded by default. Each note's evidence line expands to show its sources.
-- **Share:** the URL hash holds the form and tempo.
+- **Share:** the URL hash holds the form and tempo, plus the song for a loaded classic hit.
 
 ## Look and feel
 
@@ -142,4 +142,11 @@ npm run build      # typecheck + production build
 
 - **Scoring core:** `src/core/` is the scoring engine, pure TypeScript with no DOM, so a CLI could reuse it.
 - **Thresholds:** they live in `rules/phrase.ts` (role weights, severity cutoffs) and `rules/macro.ts` (time limits).
-- **Corpus:** `node scripts/corpus-stats.ts <dir>` rebuilds `src/core/corpus/billboard.json` from a Billboard folder, or `harmonix.json` from the Harmonix Set's `dataset` folder. `BILLBOARD_DIR=<dir> HARMONIX_DIR=<dir> npm test` also checks the engine against every song in them ([docs/research.md](docs/research.md#corpus-measurements-srccorecorpusts)).
+- **Corpus:** `node scripts/corpus-stats.ts <dir>` rebuilds `src/core/corpus/billboard.json` and the song list `songs-billboard.json` from a Billboard folder, or `harmonix.json` and `songs-harmonix.json` from the Harmonix Set's `dataset` folder (add `--years <file>` with the output of `python3 scripts/harmonix-years.py <dataset>/metadata.csv <file>` for release years). The Harmonix-derived files are MIT-licensed; see [`src/core/corpus/LICENSE-harmonix.txt`](src/core/corpus/LICENSE-harmonix.txt). `BILLBOARD_DIR=<dir> HARMONIX_DIR=<dir> npm test` also checks the engine against every song in them ([docs/research.md](docs/research.md#corpus-measurements-srccorecorpusts)).
+
+## Credits
+
+Playback uses [smplr](https://github.com/danigb/smplr) (MIT). Every sample is public domain or CC0:
+
+- From [smpldsnds](https://github.com/smpldsnds), loaded at runtime: [Splendid Grand Piano](https://github.com/sfzinstruments/SplendidGrandPiano) (Akai, public domain), [D. Smolken's double bass](https://github.com/sfzinstruments/dsmolken.double-bass) (CC0), the [Versilian Community Sample Library](https://github.com/sgossner/VCSL) (CC0) and five [drum machines](https://github.com/smpldsnds/drum-machines) (public domain).
+- In `public/samples/`, trimmed and re-encoded by `node scripts/build-samples.ts <cache-dir>` from libraries pinned to a commit: [Karoryfer Samples](https://github.com/sfzinstruments) basses, guitars, drum kits, saxophones and tuba, the Karoryfer and Bigcat cello, Versilian Studios' Osiris Piano and Virtuosity Drums, and [VSCO 2 Community Edition](https://github.com/sgossner/VSCO-2-CE) strings, horns and woodwinds (all CC0). Each `preset.json` names its source and license.

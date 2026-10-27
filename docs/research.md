@@ -94,24 +94,26 @@ The closest documented, machine-readable standard is the **SALAMI annotation for
 
 `node scripts/corpus-stats.ts <billboard-dir>` reads the McGill Billboard salami_chords files (739 distinct songs after removing songs annotated twice; Hot 100, 1958–1991). It writes aggregate counts to `src/core/corpus/billboard.json`: section lengths per role, role-to-role transitions, bridge position and bars before the first chorus. The raw files are not stored in the repo. One source of the files is `OriginalData/SalamiFiles` in the CoCoPops-Billboard-legacy repository.
 
+**Bar-count fix (October 2026).** The importer used to miss bars in about 1 in 6 Billboard songs (163 of 739): it ignored repeat marks (`| C:maj | x4` counted 1 bar, not 4; 361 lines in 95 songs) and split lines at the commas inside chords such as `B:sus4(b7,9)`, losing the bars after them (766 lines in 120 songs). `lineBars` in `salami.ts` now reads both, and every Billboard number below is re-measured. Billboard songs turn out a little more regular than first measured: about 3 points more of each role lands on the grid.
+
 **Section lengths.** Share of sections whose length leaves 0, 1, 2 or 3 bars over whole 4-bar phrases:
 
 | Role | n | On the grid | +1 | +2 | +3 (a bar short) |
 |---|---|---|---|---|---|
-| Verse | 2065 | 73% | 9% | 12% | 6% |
-| Chorus | 2024 | 66% | 10% | 16% | 8% |
-| Pre-chorus | 286 | 69% | 10% | 18% | 4% |
-| Bridge | 386 | 67% | 12% | 13% | 8% |
-| Intro | 712 | 59% | 14% | 21% | 6% |
-| Outro | 322 | 58% | 18% | 16% | 8% |
+| Verse | 2065 | 76% | 9% | 11% | 5% |
+| Chorus | 2024 | 69% | 9% | 15% | 7% |
+| Pre-chorus | 286 | 70% | 9% | 17% | 3% |
+| Bridge | 386 | 69% | 14% | 12% | 6% |
+| Intro | 712 | 63% | 13% | 20% | 5% |
+| Outro | 322 | 61% | 15% | 15% | 9% |
 
-The most common lengths are 8 and 16 bars for verses (28% and 26%) and 8 bars for choruses (35%). 87% of songs have at least one section off the grid, and 51% have three or more. Some of this is annotation noise (pickups and elisions counted as bars), but most is real.
+The most common lengths are 8 and 16 bars for verses (31% and 29%) and 8 bars for choruses (38%). 85% of songs have at least one section off the grid, and 47% have three or more. Some of this is annotation noise (pickups and elisions counted as bars), but most is real.
 
-**How R2 uses it.** A section's *rarity* is how much less often its role misses the grid that way than lands on it, in bits (a 7-bar chorus: 66% vs 8%, about 3 bits). Rarity × role weight scores the section, and every score of 1.25 or more gets a finding. The song's scores add up (compensated pairs count half, `!` sections not at all). In a song above 16 those findings are problems; 90% of corpus songs stay under 16. Below that, a section warns only if its score beats the most irregular section of 3 in 4 of the era's hits. `scripts/corpus-stats.ts` measures this cutoff (`warnScore`): 4.52 for classic norms and 5.51 for modern. Lower scores are notes. A lone 7-bar chorus still warns in both eras. A lone 7-bar verse or 6-bar pre-chorus is a note. Before this cutoff, R2 warned on 56% of Billboard songs and 48% of Harmonix songs; now it warns on 19% of each. The role weights are still Pattison's; the corpus only shows how often a role misses the grid, not how much listeners mind.
+**How R2 uses it.** A section's *rarity* is how much less often its role misses the grid that way than lands on it, in bits (a 7-bar chorus: 69% vs 7%, about 3 bits). Rarity × role weight scores the section, and every score of 1.25 or more gets a finding. The song's scores add up (compensated pairs count half, `!` sections not at all). In a song above the era's limit those findings are problems; 90% of corpus songs stay under it (see *Song limit* below). Below that, a section warns only if it is about as irregular as the most irregular section of the top quarter of the era's hits. `scripts/corpus-stats.ts` measures this cutoff (`warnScore`): 4.72 for classic norms and 5.51 for modern. Many songs share a score (every lone 7-bar chorus scores alike), so the script takes the cutoff whose share of songs reaching it is nearest 25%, not the plain 75th percentile: after the bar-count fix, the percentile landed inside a tie of 134 Billboard songs and would have warned on 42% of them. Lower scores are notes. A lone 7-bar chorus still warns in both eras. A lone 7-bar verse or 6-bar pre-chorus is a note. Before this cutoff, R2 warned on 56% of Billboard songs and 48% of Harmonix songs; now it warns on 23% of Billboard songs and 19% of Harmonix songs. The role weights are still Pattison's; the corpus only shows how often a role misses the grid, not how much listeners mind.
 
-**Song length (R12).** A song longer than 9 in 10 of the era's gets a note: over 4:39 for Billboard and over 4:30 for Harmonix. This replaced a fixed 5:30 limit and the unsourced "most pop songs run 2:30–4:00". It notes 10% of hits, by construction.
+**Song length (R12).** A song longer than 9 in 10 of the era's gets a note: over 4:45 for Billboard and over 4:30 for Harmonix. This replaced a fixed 5:30 limit and the unsourced "most pop songs run 2:30–4:00". It notes 10% of hits, by construction.
 
-**Song limit and ranking.** `scripts/corpus-stats.ts` scores every corpus song with the same `gridScores` the rule uses, and stores the sorted totals (`songIrregularity`). This takes a second pass, because scoring needs the length counts just measured. The Unbalanced limit is the era's 90th percentile of those totals: 15.9 for Billboard and 15.8 for Harmonix, close to the 16 first set by hand. The verdict line shows where a song ranks, e.g. "More regular than 35% of modern hits" for a pop form with one 7-bar chorus. Every section is on the grid in 14% of Billboard songs and 28% of Harmonix songs.
+**Song limit and ranking.** `scripts/corpus-stats.ts` scores every corpus song with the same `gridScores` the rule uses, and stores the sorted totals (`songIrregularity`). This takes a second pass, because scoring needs the length counts just measured. The Unbalanced limit is the era's 90th percentile of those totals: 15.3 for Billboard and 15.8 for Harmonix, close to the 16 first set by hand. The verdict line shows where a song ranks, e.g. "More regular than 35% of modern hits" for a pop form with one 7-bar chorus. Every section is on the grid in 15% of Billboard songs and 28% of Harmonix songs.
 
 **Check against real hits.** `BILLBOARD_DIR=<dir> npm test` runs the engine over every corpus song at its own tempo and meter. A real hit is the closest thing to a known-balanced song, so the share called Unbalanced acts as a false-alarm rate:
 
@@ -119,33 +121,46 @@ The most common lengths are 8 and 16 bars for verses (28% and 26%) and 8 bars fo
 |---|---|---|---|
 | Hand-set weights (before) | 18.1% | 50.7% | 31.1% |
 | Corpus-scored R2 | 23.0% | 67.4% | 9.6% |
-| Now, after all the tuning below | 57.6% | 32.5% | 9.9% |
+| After the tuning below | 57.6% | 32.5% | 9.9% |
+| Now, after the bar-count fix | 60.6% | 29.5% | 9.9% |
 
-The warnings that remain on Billboard hits are mostly R2 (19% of songs), R9 (13%), R8 (8%) and R4 (5%), after R2, R4 and R8 were retuned. R12 adds a note on 10%. Before that, R2 was 56%, R8 20% and R4 13%.
+The warnings that remain on Billboard hits are mostly R2 (23% of songs), R9 (13%), R8 (8%) and R4 (2%), after R2, R4 and R8 were retuned. R12 adds a note on 10%. Before that, R2 was 56%, R8 20% and R4 13%.
 
 **Rare hand-offs (R11).** `billboard.json` counts which role follows which, including the song's start and end. A hand-off that fewer than 1% of corpus sections of that role make gets a note with its real share and what usually comes next (for example "0.5% of choruses go straight to a pre-chorus; most lead into a verse"). Roles with fewer than 50 corpus sections are skipped. So is a hand-off another rule already explains, such as R9's bridge that ends the song. On real hits, 6.4% of songs get one of these notes. They are notes only, so they don't change the verdict. Bridge → outro is common (4% of bridges), so it is not flagged. The note offers to insert whatever most often follows the first section (chorus → pre-chorus offers "Put a verse between them"). It only offers this when the inserted section leads on to the next one often enough in the corpus.
 
 ### Second corpus: the Harmonix Set
 
-`node scripts/corpus-stats.ts <harmonixset>/dataset` writes `src/core/corpus/harmonix.json` in the same shape as the Billboard file. The source is the [Harmonix Set](https://github.com/urinieto/harmonixset) (Nieto et al., ISMIR 2019): 912 Western pop songs, mostly from the 1990s–2010s, with hand-annotated beats, downbeats and segments.
+`node scripts/corpus-stats.ts <harmonixset>/dataset` writes `src/core/corpus/harmonix.json` in the same shape as the Billboard file. The source is the [Harmonix Set](https://github.com/urinieto/harmonixset) (Nieto et al., ISMIR 2019): 912 Western pop songs, mostly from the 2000s–2010s, with hand-annotated beats, downbeats and segments.
 
 - **License:** MIT License, Copyright (c) 2019 Oriol Nieto. Publishing and redistributing derived data is allowed. The notice must go with copies or substantial portions; only aggregate counts are kept here. The authors ask that published results cite the paper.
 - **Bars:** each segment's bars are the downbeats inside it, so lengths are counted, not read off chord lines. Segments shorter than a bar (pickups, fills) are dropped. The tempo is measured from the downbeats.
 - **Labels:** free-form labels (`verse2`, `altchorus`, `gtrbreak`) are read by their core word (`HARMONIX_ROLES`). `postchorus` is its own type. Unrecognised labels are interludes.
-- **Years:** the metadata has no release year, only MusicBrainz IDs, so the two corpora can't be compared by exact decade.
+- **Years:** the metadata has no release year, only MusicBrainz IDs. Years were looked up from each song's MusicBrainz recording (earliest release date) with `scripts/harmonix-years.py`, and `corpus-stats.ts --years <file>` adds them to `songs-harmonix.json`, the per-song list the app's **Load a real hit** search reads. See *By decade* below.
 
-| | Billboard (1958–1991) | Harmonix (mostly 1990s–2010s) |
+| | Billboard (1958–1991) | Harmonix (mostly 2000s–2010s) |
 |---|---|---|
 | Songs | 739 | 912 |
-| Verses on the 4-bar grid | 73% | 85% |
-| Choruses on the grid | 66% | 81% |
-| Pre-choruses on the grid | 69% | 84% |
-| Most common chorus length | 8 bars (35%) | 8 bars (52%) |
+| Verses on the 4-bar grid | 76% | 85% |
+| Choruses on the grid | 69% | 81% |
+| Pre-choruses on the grid | 70% | 84% |
+| Most common chorus length | 8 bars (38%) | 8 bars (52%) |
 | Bridge start (after two choruses), median and 10th–90th percentile | 52% (37–70%) | 63% (49–74%) |
-| First chorus, median and 90th percentile | 43 s, 82 s | 42 s, 71 s |
+| First chorus, median and 90th percentile | 44 s, 82 s | 42 s, 71 s |
 | Songs with a post-chorus | no label | 197 (22%) |
 
 Newer songs keep closer to the grid, and their bridges come later, near Schwitzgebel's two-thirds.
+
+**By decade.** Release years for 889 of 912 Harmonix songs: 10th percentile 1991, median 2009, 90th percentile 2012; 8% are from before 1990, 8% from the 1990s, 45% from the 2000s and 39% from the 2010s. MusicBrainz matches are not always the original recording, so some years are off by a decade or more in either direction ("Baba O'Riley" reads 1982, not 1971; "Baby Got Back" 1985, not 1992). Treat the table as a trend, not exact decades. The 3 years after 2019, when the set was published, count as unknown.
+
+| Decade | Songs | Verses on grid | Choruses on grid | First chorus (median) | Intro (median) | Song length (median) | Bridge start (median) | Has a post-chorus |
+|---|---|---|---|---|---|---|---|---|
+| Before 1990 | 75 | 74% | 68% | 43 s | 16 s | 207 s | 54% | 19% |
+| 1990s | 68 | 79% | 79% | 50 s | 15 s | 223 s | 62% | 28% |
+| 2000s | 397 | 85% | 81% | 41 s | 13 s | 211 s | 63% | 17% |
+| 2010s | 349 | 88% | 82% | 42 s | 12 s | 213 s | 65% | 26% |
+| Unknown | 23 | 89% | 85% | 45 s | 15 s | 212 s | 62% | 22% |
+
+The pre-1990 Harmonix songs match Billboard closely (74% vs 76% of verses, 68% vs 69% of choruses on the grid; bridges at 54% vs 52%), so the gap between the two eras is about years, not about how each set was annotated. Choruses reach the grid from the 1990s on, verses keep tightening into the 2010s, and bridges move later. The first chorus arrives about 8 s sooner after 2000. Each decade before 2000 has under 80 songs, too few to split the modern era further.
 
 **Check on songs the thresholds never saw.** The engine is tuned on Billboard. On Harmonix it calls 30.0% of songs Balanced, 66.4% Mostly balanced and 3.5% Unbalanced (`HARMONIX_DIR=<dir> npm test`), so the 10% false-alarm target holds outside the tuning set. The most common warnings there are R2 on choruses (35% of songs), R4 (22%; 6.5% after the position-aware tuning below), R8 (17%; 9.6% after its limits came from the corpus) and R2 on verses (18%). R10 gives a note on 12% of songs, because the window comes from Billboard's earlier bridges.
 
@@ -155,10 +170,10 @@ The toolbar's era picker (`Options.era`, `corpusFor` in `corpus.ts`) chooses whi
 
 | Songs scored | Era norms | Balanced | Mostly balanced | Unbalanced |
 |---|---|---|---|---|
-| Billboard | Classic | 57.6% | 32.5% | 9.9% |
-| Billboard | Modern | 47.8% | 30.2% | 22.1% |
-| Harmonix | Modern | 56.6% | 33.4% | 10.0% |
-| Harmonix | Classic | 59.1% | 37.4% | 3.5% |
+| Billboard | Classic | 60.6% | 29.5% | 9.9% |
+| Billboard | Modern | 49.5% | 31.4% | 19.1% |
+| Harmonix | Modern | 56.7% | 33.4% | 9.9% |
+| Harmonix | Classic | 63.0% | 31.5% | 5.5% |
 
 Modern norms are stricter about the grid, because modern songs miss it less often. Judged by them, a third of older hits get an R11 note and a fifth come out Unbalanced. A lone 9-bar chorus is an example: under classic norms it gets a note, and under modern norms a warning.
 
@@ -166,7 +181,9 @@ Modern norms are stricter about the grid, because modern songs miss it less ofte
 
 ## Known gaps / next steps
 
-- **Decades.** The era setting uses whole corpora, not years. For a decade-by-decade comparison, look up release years from the Harmonix MusicBrainz IDs.
+- **Real chords.** Billboard files give every bar's chords in Harte spelling (Harte et al., ISMIR 2005), so a loaded classic hit plays them (`harteNotes` and `barChords` in `src/audio/chords.ts`). Harmonix has beats and sections only, so modern hits play placeholders. Bars in another metre (`(2/4)`) play at the song's bar length.
+
+- **Decades.** The era setting uses whole corpora, not years. The decade table above shows the trend, but Harmonix has under 80 songs for each decade before 2000, too few to split the modern era further.
 - **Post-chorus** is a section type (`Post`), because 22% of Harmonix songs have one (Nobile, MTO 28.3; BMI describe the trend). The SALAMI function list has no post-chorus label; files use `post-chorus` and the app reads and writes that. Billboard has no post-choruses, so under classic norms the R11 hand-off notes skip them (fewer than 50 corpus sections). Harmonix post-choruses are 8 bars (47%) or 4 bars (29%) and follow a chorus 86% of the time.
 - **Drop.** Practitioners describe the drop in dance-pop, often in the post-chorus slot. No corpus here labels it.
 - **Genre.** The norms are Western pop/rock. Blues, strophic and AABA are recognised as form types; other genres (EDM drops, hip-hop, prog) are not modelled.

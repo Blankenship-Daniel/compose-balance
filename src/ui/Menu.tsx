@@ -3,10 +3,10 @@ import { PRESETS } from "../core/presets.ts";
 
 interface Props {
   onPreset(name: string): void;
-  onOpen(panel: "exchange" | "help"): void;
+  onOpen(panel: "exchange" | "help" | "songs" | "instruments"): void;
 }
 
-/** Things used once per session: examples, import/export, help. */
+/** Things used once per session: examples, real hits, import/export, help. */
 export function Menu({ onPreset, onOpen }: Props) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -36,7 +36,7 @@ export function Menu({ onPreset, onOpen }: Props) {
         aria-haspopup="true"
         aria-expanded={open}
         aria-label="More"
-        title="Examples, import or export, help"
+        title="Examples, real hits, instruments, import or export, help"
         onClick={() => setOpen((o) => !o)}
       >
         ⋯
@@ -49,7 +49,9 @@ export function Menu({ onPreset, onOpen }: Props) {
               {p.name}
             </button>
           ))}
+          <button onClick={choose(() => onOpen("songs"))}>Load a real hit…</button>
           <hr />
+          <button onClick={choose(() => onOpen("instruments"))}>Instruments…</button>
           <button onClick={choose(() => onOpen("exchange"))}>Import or export…</button>
           <button onClick={choose(() => onOpen("help"))}>How this works</button>
         </div>

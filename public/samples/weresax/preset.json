@@ -1,0 +1,110 @@
+{
+ "meta": {
+  "name": "Weresax, alto",
+  "license": "CC0-1.0 (Karoryfer Samples)",
+  "source": "https://github.com/sfzinstruments/karoryfer.weresax/tree/a4d756b21d2a573aca0d840cce7e71ba5effd4c6"
+ },
+ "samples": {
+  "baseUrl": "./",
+  "formats": [
+   "m4a"
+  ]
+ },
+ "defaults": {
+  "ampRelease": 0.3
+ },
+ "groups": [
+  {
+   "regions": [
+    {
+     "sample": "weresax-0",
+     "pitch": 49,
+     "keyRange": [
+      43,
+      50
+     ]
+    },
+    {
+     "sample": "weresax-1",
+     "pitch": 52,
+     "keyRange": [
+      51,
+      53
+     ]
+    },
+    {
+     "sample": "weresax-2",
+     "pitch": 55,
+     "keyRange": [
+      54,
+      56
+     ]
+    },
+    {
+     "sample": "weresax-3",
+     "pitch": 58,
+     "keyRange": [
+      57,
+      59
+     ]
+    },
+    {
+     "sample": "weresax-4",
+     "pitch": 61,
+     "keyRange": [
+      60,
+      62
+     ]
+    },
+    {
+     "sample": "weresax-5",
+     "pitch": 64,
+     "keyRange": [
+      63,
+      65
+     ]
+    },
+    {
+     "sample": "weresax-6",
+     "pitch": 67,
+     "keyRange": [
+      66,
+      68
+     ]
+    },
+    {
+     "sample": "weresax-7",
+     "pitch": 70,
+     "keyRange": [
+      69,
+      71
+     ]
+    },
+    {
+     "sample": "weresax-8",
+     "pitch": 73,
+     "keyRange": [
+      72,
+      74
+     ]
+    },
+    {
+     "sample": "weresax-9",
+     "pitch": 76,
+     "keyRange": [
+      75,
+      77
+     ]
+    },
+    {
+     "sample": "weresax-10",
+     "pitch": 79,
+     "keyRange": [
+      78,
+      87
+     ]
+    }
+   ]
+  }
+ ]
+}

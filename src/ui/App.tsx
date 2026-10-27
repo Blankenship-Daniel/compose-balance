@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { HexSky } from "@harmonics/lattice-ui";
-import { Player } from "../audio/player.ts";
+import { Player, type Sound } from "../audio/player.ts";
+import { type BandChoice, validChoice } from "../audio/instruments.ts";
+import { Instruments } from "./Instruments.tsx";
 import { format, parse } from "../core/parse.ts";
 import { PRESETS } from "../core/presets.ts";
 import { COMMON_METERS, formatMeter, FOUR_FOUR, parseMeter, tempoNote } from "../core/meter.ts";
@@ -16,11 +18,14 @@ import { Exchange } from "./Exchange.tsx";
 import { Findings } from "./Findings.tsx";
 import { Help } from "./Help.tsx";
 import { Menu } from "./Menu.tsx";
+import { SongSearch } from "./SongSearch.tsx";
+import { type Hit, hitSections, restoreChords, songOf } from "../core/songs.ts";
+import { carryChords } from "../core/chords.ts";
 
 /** A tempo from the field or the URL: 20–400 bpm, 100 when it isn't a number. */
 const clampBpm = (value: unknown) => Math.min(400, Math.max(20, Number(value) || 100));
 
-function readHash(): { notation: string; bpm: number; meter: string; era: Era } | null {
+function readHash(): { notation: string; bpm: number; meter: string; era: Era; song?: string } | null {
   const params = new URLSearchParams(location.hash.slice(1));
   const f = params.get("f");
   if (!f) return null;
@@ -30,6 +35,7 @@ function readHash(): { notation: string; bpm: number; meter: string; era: Era } 
     bpm: clampBpm(params.get("bpm")),
     meter: params.get("m") ?? "4/4",
     era: era && Object.hasOwn(ERA_NAME, era) ? (era as Era) : DEFAULT_ERA,
+    song: params.get("song") ?? undefined,
   };
 }
 
@@ -56,7 +62,7 @@ function isTyping(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && /^(INPUT|SELECT|TEXTAREA)$/.test(target.tagName);
 }
 
-type Panel = "exchange" | "help" | null;
+type Panel = "exchange" | "help" | "songs" | "instruments" | null;
 
 export function App() {
   const [sections, setSections] = useState<Section[]>(() => parse(initial.notation).sections);
@@ -105,20 +111,42 @@ export function App() {
 
   const report = useMemo(() => analyze(sections, opts), [sections, opts]);
   const playing = playBar >= 0;
+  // The band's samples load on the first Play; the button says so meanwhile.
+  const [loadingSound, setLoadingSound] = useState(false);
+  const [sound, setSoundState] = useState<Sound>(() => (readPref("sound") === "synth" ? "synth" : "band"));
+  const [band, setBandState] = useState<BandChoice>(() => {
+    try {
+      return validChoice(JSON.parse(readPref("band") ?? "null"));
+    } catch {
+      return validChoice(null);
+    }
+  });
 
   useEffect(() => {
     const m = encodeURIComponent(formatMeter(opts.meter));
     // The default era stays out of the URL, so older links and new ones read the same.
     const era = opts.era && opts.era !== DEFAULT_ERA ? `&era=${opts.era}` : "";
-    window.history.replaceState(null, "", `#f=${encodeURIComponent(format(sections))}&bpm=${opts.bpm}&m=${m}${era}`);
+    // A loaded hit's id, so the link plays its real chords too.
+    const song = songOf(sections);
+    window.history.replaceState(null, "", `#f=${encodeURIComponent(format(sections))}&bpm=${opts.bpm}&m=${m}${era}${song ? `&song=${song}` : ""}`);
   }, [sections, opts.bpm, opts.meter, opts.era]);
+
+  // A link to a loaded hit: fetch its chords and put them back on the linked form.
+  useEffect(() => {
+    if (!initial.song) return;
+    restoreChords(initial.song, sections).then(
+      (withChords) => withChords && setSections((current) => carryChords(withChords, current)),
+      () => {}, // the song list didn't load: the form still plays, on placeholders
+    );
+    // Once, for the link the page opened with.
+  }, []);
 
   useEffect(() => () => player.current?.stop(), []);
 
   // Space plays/stops, Cmd/Ctrl+Z undoes, Escape closes a panel — except while typing in a field.
   const keys = useRef({ togglePlay: () => {}, undo: () => {}, close: () => {} });
   keys.current = {
-    togglePlay: () => (playing ? stop() : play()),
+    togglePlay: () => (playing || loadingSound ? stop() : play()),
     undo,
     close: () => {
       setPanel(null);
@@ -150,7 +178,8 @@ export function App() {
    * Every structural edit goes through here so undo, the text box and the table stay in sync.
    * `settings` are changed in the same undo step (a preset's tempo, an import's meter).
    */
-  function update(next: Section[], nextPieces?: Layout, settings?: Partial<Options>) {
+  function update(edited: Section[], nextPieces?: Layout, settings?: Partial<Options>) {
+    const next = carryChords(sections, edited);
     const before = settings && (Object.fromEntries(Object.keys(settings).map((k) => [k, opts[k as keyof Options]])) as Partial<Options>);
     setUndoStack((h) => [...h.slice(-49), { sections, pieces, settings: before }]);
     if (settings) applySettings(settings);
@@ -170,9 +199,10 @@ export function App() {
     const result = parse(value);
     setErrors(result.errors);
     if (result.errors.length === 0 && format(result.sections) !== format(sections)) {
+      const next = carryChords(sections, result.sections);
       setUndoStack((h) => [...h.slice(-49), { sections, pieces }]);
-      setSections(result.sections);
-      setPieces(piecesFor(result.sections));
+      setSections(next);
+      setPieces(piecesFor(next));
       stop();
     }
   }
@@ -212,15 +242,37 @@ export function App() {
     update(parse(p.notation).sections, undefined, { bpm: p.bpm });
   }
 
+  /** A corpus song: its form, chords where known, tempo and time signature, judged against its own era. Undo restores all of it. */
+  function loadHit(hit: Hit) {
+    const meter = parseMeter(hit.meter);
+    update(hitSections(hit), undefined, { bpm: hit.bpm, era: hit.era, ...(typeof meter !== "string" && { meter }) });
+    setPanel(null);
+  }
+
   function play(fromBar = 0) {
     if (sections.length === 0) return;
     player.current ??= new Player();
-    player.current.play(sections, opts, setPlayBar, fromBar);
+    void player.current.play(sections, opts, setPlayBar, fromBar, { sound, band, onLoading: setLoadingSound });
   }
 
   function stop() {
     player.current?.stop();
     setPlayBar(-1);
+    setLoadingSound(false);
+  }
+
+  function setSound(next: Sound) {
+    stop();
+    setSoundState(next);
+    writePref("sound", next);
+  }
+
+  function setBand(next: BandChoice) {
+    stop();
+    setBandState(next);
+    writePref("band", JSON.stringify(next));
+    // Picking instruments means wanting to hear them.
+    if (sound !== "band") setSound("band");
   }
 
   function setOption(patch: Partial<Options>) {
@@ -263,14 +315,15 @@ export function App() {
         <div className="toolbar-row">
           <button
             className="play"
-            onClick={() => (playing ? stop() : play())}
+            onClick={() => (playing || loadingSound ? stop() : play())}
             disabled={sections.length === 0}
-            aria-pressed={playing}
+            aria-pressed={playing || loadingSound}
+            title={loadingSound ? "Loading the piano, bass and drums (first play only)" : undefined}
           >
             <span className="play-icon" aria-hidden>
-              {playing ? "■" : "▶"}
+              {playing || loadingSound ? "■" : "▶"}
             </span>
-            {playing ? "Stop" : "Play"}
+            {loadingSound ? "Loading…" : playing ? "Stop" : "Play"}
           </button>
           <label className="tempo" title={`Tempo: ${beatNote.name} notes per minute`}>
             <span className="tempo-note" aria-hidden>
@@ -312,6 +365,11 @@ export function App() {
               {formatSeconds(report.seconds)}
             </span>
           )}
+          {sections.some((s) => s.chords) && (
+            <span className="chord-source" title="Bars from a loaded hit play its real chords; bars you add play placeholders">
+              Song’s chords
+            </span>
+          )}
           {/* Phones: one row of Play, the time, Undo and this; the rest opens below it. */}
           <button
             className="settings-toggle"
@@ -334,6 +392,16 @@ export function App() {
                 {ERA_NAME[era]}
               </option>
             ))}
+          </select>
+          <select
+            className="sound"
+            value={sound}
+            aria-label="Playback sound"
+            title="Band: sampled piano, bass and drums. Click: simple chords and a click on every beat."
+            onChange={(e) => setSound(e.target.value as Sound)}
+          >
+            <option value="band">Band</option>
+            <option value="synth">Click</option>
           </select>
           {/* Both views named, the current one marked: a single button that names the other view reads as where you are. */}
           <div className="view-switch" role="group" aria-label="View">
@@ -424,6 +492,8 @@ export function App() {
         />
       )}
       {panel === "help" && <Help onClose={() => setPanel(null)} />}
+      {panel === "songs" && <SongSearch onLoad={loadHit} onClose={() => setPanel(null)} />}
+      {panel === "instruments" && <Instruments band={band} onChange={setBand} onClose={() => setPanel(null)} />}
 
       <div className="workspace">
         <main className="sheet" aria-label="Chart">

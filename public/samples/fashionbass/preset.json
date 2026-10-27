@@ -1,0 +1,86 @@
+{
+ "meta": {
+  "name": "Fashionbass, clean",
+  "license": "CC0-1.0 (Karoryfer Samples)",
+  "source": "https://github.com/sfzinstruments/karoryfer.fashionbass/tree/0703973b300a6bacb837602be9b588ab64732a72"
+ },
+ "samples": {
+  "baseUrl": "./",
+  "formats": [
+   "m4a"
+  ]
+ },
+ "defaults": {
+  "ampRelease": 0.3
+ },
+ "groups": [
+  {
+   "regions": [
+    {
+     "sample": "fashionbass-0",
+     "pitch": 29,
+     "keyRange": [
+      22,
+      30
+     ]
+    },
+    {
+     "sample": "fashionbass-1",
+     "pitch": 32,
+     "keyRange": [
+      31,
+      33
+     ]
+    },
+    {
+     "sample": "fashionbass-2",
+     "pitch": 35,
+     "keyRange": [
+      34,
+      36
+     ]
+    },
+    {
+     "sample": "fashionbass-3",
+     "pitch": 38,
+     "keyRange": [
+      37,
+      39
+     ]
+    },
+    {
+     "sample": "fashionbass-4",
+     "pitch": 41,
+     "keyRange": [
+      40,
+      42
+     ]
+    },
+    {
+     "sample": "fashionbass-5",
+     "pitch": 44,
+     "keyRange": [
+      43,
+      45
+     ]
+    },
+    {
+     "sample": "fashionbass-6",
+     "pitch": 47,
+     "keyRange": [
+      46,
+      48
+     ]
+    },
+    {
+     "sample": "fashionbass-7",
+     "pitch": 50,
+     "keyRange": [
+      49,
+      56
+     ]
+    }
+   ]
+  }
+ ]
+}

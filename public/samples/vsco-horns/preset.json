@@ -1,0 +1,86 @@
+{
+ "meta": {
+  "name": "VSCO 2 CE French horn, sustained",
+  "license": "CC0-1.0 (Versilian Studios, VSCO 2 Community Edition)",
+  "source": "https://github.com/sgossner/VSCO-2-CE/tree/440300901dfe9275fd84e0b7763af1f8443ae62e"
+ },
+ "samples": {
+  "baseUrl": "./",
+  "formats": [
+   "m4a"
+  ]
+ },
+ "defaults": {
+  "ampRelease": 0.3
+ },
+ "groups": [
+  {
+   "regions": [
+    {
+     "sample": "vsco-horns-0",
+     "pitch": 43,
+     "keyRange": [
+      36,
+      44
+     ]
+    },
+    {
+     "sample": "vsco-horns-1",
+     "pitch": 46,
+     "keyRange": [
+      45,
+      48
+     ]
+    },
+    {
+     "sample": "vsco-horns-2",
+     "pitch": 50,
+     "keyRange": [
+      49,
+      51
+     ]
+    },
+    {
+     "sample": "vsco-horns-3",
+     "pitch": 53,
+     "keyRange": [
+      52,
+      55
+     ]
+    },
+    {
+     "sample": "vsco-horns-4",
+     "pitch": 57,
+     "keyRange": [
+      56,
+      58
+     ]
+    },
+    {
+     "sample": "vsco-horns-5",
+     "pitch": 60,
+     "keyRange": [
+      59,
+      67
+     ]
+    },
+    {
+     "sample": "vsco-horns-6",
+     "pitch": 74,
+     "keyRange": [
+      68,
+      75
+     ]
+    },
+    {
+     "sample": "vsco-horns-7",
+     "pitch": 77,
+     "keyRange": [
+      76,
+      84
+     ]
+    }
+   ]
+  }
+ ]
+}

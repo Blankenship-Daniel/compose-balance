@@ -1,0 +1,94 @@
+{
+ "meta": {
+  "name": "Bear Sax, solo",
+  "license": "CC0-1.0 (Karoryfer Samples)",
+  "source": "https://github.com/sfzinstruments/karoryfer.bear-sax/tree/7abb3c652525a15dfac80e1b5dfbba9964ee568f"
+ },
+ "samples": {
+  "baseUrl": "./",
+  "formats": [
+   "m4a"
+  ]
+ },
+ "defaults": {
+  "ampRelease": 0.3
+ },
+ "groups": [
+  {
+   "regions": [
+    {
+     "sample": "bear-sax-0",
+     "pitch": 44,
+     "keyRange": [
+      38,
+      45
+     ]
+    },
+    {
+     "sample": "bear-sax-1",
+     "pitch": 47,
+     "keyRange": [
+      46,
+      48
+     ]
+    },
+    {
+     "sample": "bear-sax-2",
+     "pitch": 50,
+     "keyRange": [
+      49,
+      51
+     ]
+    },
+    {
+     "sample": "bear-sax-3",
+     "pitch": 53,
+     "keyRange": [
+      52,
+      54
+     ]
+    },
+    {
+     "sample": "bear-sax-4",
+     "pitch": 56,
+     "keyRange": [
+      55,
+      57
+     ]
+    },
+    {
+     "sample": "bear-sax-5",
+     "pitch": 59,
+     "keyRange": [
+      58,
+      60
+     ]
+    },
+    {
+     "sample": "bear-sax-6",
+     "pitch": 62,
+     "keyRange": [
+      61,
+      63
+     ]
+    },
+    {
+     "sample": "bear-sax-7",
+     "pitch": 65,
+     "keyRange": [
+      64,
+      66
+     ]
+    },
+    {
+     "sample": "bear-sax-8",
+     "pitch": 68,
+     "keyRange": [
+      67,
+      86
+     ]
+    }
+   ]
+  }
+ ]
+}
