@@ -1,4 +1,4 @@
-import { expect, open, test } from "./fixtures.ts";
+import { expect, open, song, test } from "./fixtures.ts";
 
 /**
  * Screenshots for a person to look at (dark mode, narrow screens), not compared against a
@@ -9,14 +9,15 @@ const SONG = "In4 Vs8 Pre4 Ch7 Vs8 Pre4 Ch8 Inst4 Br8 Ch8 Out4";
 test("board", async ({ page }, info) => {
   await open(page, { form: SONG });
   await page.locator("button.pin").first().click();
-  // Not full-page: that resizes the page, and a resize reorders the song (see layout.spec.ts).
-  await page.screenshot({ path: info.outputPath("board.png") });
+  // Full-page: the page is resized for the shot, so this also checks a resize leaves the song be.
+  await page.screenshot({ path: info.outputPath("board.png"), fullPage: true });
+  expect(await song(page)).toBe(SONG);
   await expect(page.locator(".pin-note")).toBeVisible();
 });
 
 test("chart", async ({ page }, info) => {
   await open(page, { form: SONG, view: "chart" });
-  await page.screenshot({ path: info.outputPath("chart.png") });
+  await page.screenshot({ path: info.outputPath("chart.png"), fullPage: true });
 });
 
 test("text and errors", async ({ page }, info) => {

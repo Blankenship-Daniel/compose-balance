@@ -17,6 +17,9 @@ import { Findings } from "./Findings.tsx";
 import { Help } from "./Help.tsx";
 import { Menu } from "./Menu.tsx";
 
+/** A tempo from the field or the URL: 20–400 bpm, 100 when it isn't a number. */
+const clampBpm = (value: unknown) => Math.min(400, Math.max(20, Number(value) || 100));
+
 function readHash(): { notation: string; bpm: number; meter: string; era: Era } | null {
   const params = new URLSearchParams(location.hash.slice(1));
   const f = params.get("f");
@@ -24,7 +27,7 @@ function readHash(): { notation: string; bpm: number; meter: string; era: Era } 
   const era = params.get("era");
   return {
     notation: f,
-    bpm: Math.min(400, Math.max(20, Number(params.get("bpm")) || 100)),
+    bpm: clampBpm(params.get("bpm")),
     meter: params.get("m") ?? "4/4",
     era: era && Object.hasOwn(ERA_NAME, era) ? (era as Era) : DEFAULT_ERA,
   };
@@ -124,8 +127,7 @@ export function App() {
   };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // The form field's own Escape leaves Text, and only that.
-      if (e.key === "Escape") return e.target instanceof HTMLElement && e.target.id === "notation" ? undefined : keys.current.close();
+      if (e.key === "Escape") return keys.current.close();
       if (isTyping(e.target)) return;
       if (e.key === " " && !(e.target instanceof HTMLButtonElement)) {
         e.preventDefault();
@@ -280,7 +282,7 @@ export function App() {
               max={400}
               value={opts.bpm}
               aria-label={`Tempo in ${beatNote.name} notes per minute`}
-              onChange={(e) => setOption({ bpm: Math.min(400, Math.max(20, Number(e.target.value) || 100)) })}
+              onChange={(e) => setOption({ bpm: clampBpm(e.target.value) })}
             />
             <span className="tempo-unit" aria-hidden>
               bpm
@@ -389,7 +391,12 @@ export function App() {
             autoCapitalize="off"
             autoFocus
             onChange={(e) => onText(e.target.value)}
-            onKeyDown={(e) => e.key === "Escape" && setTyping(false)}
+            onKeyDown={(e) => {
+              // Its Escape leaves Text, and only that: the page's Escape doesn't hear it.
+              if (e.key !== "Escape") return;
+              e.stopPropagation();
+              setTyping(false);
+            }}
           />
         )}
         {((typing && errors.length > 0) || meterError) && (
@@ -444,6 +451,7 @@ export function App() {
               onStart={() => loadPreset(PRESETS[0]!.name)}
               openShelf={openShelf}
               onTidy={tidy}
+              onRefit={setPieces}
             />
           ) : (
             <>

@@ -11,6 +11,7 @@ import {
   cutThrough,
   dropBar,
   finishPhrase,
+  flow,
   ghostsOf,
   type Layout,
   newPieceId,
@@ -73,6 +74,8 @@ interface Props {
   openShelf: number;
   /** Lays the whole song out afresh, in reading order. */
   onTidy(): void;
+  /** The board's own refit of its pieces (a resize): a new layout for the same song, not an edit. */
+  onRefit(layout: Layout): void;
 }
 
 /** A note pinned to the board: the findings about one spot, a section's corner or a hand-off. */
@@ -170,9 +173,17 @@ export function LatticeTable(props: Props) {
     if (!board) return;
     const changed = (e: CustomEvent<{ pieces: Layout["pieces"]; action: string; id: string }>) => {
       // A resize that moved pieces back onto a narrower board (no piece id): not the person's
-      // arrangement, so not read back as the song, which would reorder it. The app lays the song
-      // out again for the new width (onWidth).
-      if (e.detail.id === "") return;
+      // edit. The app takes the board's pieces as its layout if they still read as the same song,
+      // and lays the song out afresh if not, rather than reading a new order back as the song.
+      if (e.detail.id === "") {
+        const refit: Layout = { pieces: e.detail.pieces, roles: carryRoles(layoutRef.current, e.detail.pieces) };
+        const song = propsRef.current.sections;
+        const read = songOf(refit);
+        const same = read.whole && read.sections.length === song.length && read.sections.every((x, i) => x.role === song[i]!.role && x.bars === song[i]!.bars);
+        if (same) fromBoard.current = e.detail.pieces;
+        propsRef.current.onRefit(same ? refit : flow(song, widthRef.current));
+        return;
+      }
       // A bar lifted by Alt-drag (see `lift` below) and let go where it was: it goes back into its
       // section, as if never lifted.
       const split = pulling.current;
@@ -378,33 +389,41 @@ export function LatticeTable(props: Props) {
    * top, clear of its pieces (the board draws them lifted a little), so a press on a piece always
    * reaches the piece.
    */
-  const labelHit = (sec: { box: { left: number; top: number } }) => {
-    const x = sec.box.left / EDGE - 0.15;
-    const y = sec.box.top / EDGE - 0.3 - 44 / L;
-    const h = 44 / L;
-    // Stopping where the next label's target starts on its line, so packed 1-bar sections each
-    // keep their own.
-    const next = order
-      .map((o) => ({ x: o.box.left / EDGE - 0.15, y: o.box.top / EDGE - 0.3 - h }))
-      .filter((o) => o.x > x + 1e-6 && Math.abs(o.y - y) < h)
-      .reduce((m, o) => Math.min(m, o.x), Infinity);
-    return { x, y, width: Math.min(Math.max(h, 2.6), next - x), height: h };
-  };
+  const labelH = 44 / L;
+  const labelOrigin = (sec: { box: { left: number; top: number } }) => ({ x: sec.box.left / EDGE - 0.15, y: sec.box.top / EDGE - 0.3 - labelH });
+  const origins = order.map(labelOrigin);
+  // Each label's target, stopping where the next label's starts on its line, so packed 1-bar
+  // sections each keep their own.
+  const labelHits = origins.map(({ x, y }) => {
+    const next = origins.filter((o) => o.x > x + 1e-6 && Math.abs(o.y - y) < labelH).reduce((m, o) => Math.min(m, o.x), Infinity);
+    return { x, y, width: Math.min(Math.max(labelH, 2.6), next - x), height: labelH };
+  });
   /**
    * A pin over a section's label would take the clicks meant for it (packed 1-bar sections put
    * one section's corner on the next one's label): such a pin is drawn just below the label
-   * instead, on the pieces' top edge. The label's text reaches a little below its target.
+   * instead, on its pieces' top edge (the label's text reaches a little below its target), and
+   * beside a pin already there. Until nothing moves: a move can land on another label.
    */
   const clearOfLabels = (pins: Pin[]) => {
     const r = 12 / L; // half a pin, in block edges
-    for (const pin of pins)
-      for (const sec of order) {
-        const hit = labelHit(sec);
-        const bottom = sec.box.top / EDGE - 0.08;
-        const p = pin.place ?? pin.at;
-        if (p.x + r > hit.x && p.x - r < hit.x + hit.width && p.y + r > hit.y && p.y - r < bottom)
-          pin.place = { x: p.x, y: bottom + r + 0.02 };
-      }
+    for (let pass = 0; pass < 4; pass++) {
+      let moved = false;
+      pins.forEach((pin, k) => {
+        order.forEach((sec, i) => {
+          const hit = labelHits[i]!;
+          const bottom = sec.box.top / EDGE - 0.08;
+          const p = pin.place ?? pin.at;
+          if (p.x + r > hit.x && p.x - r < hit.x + hit.width && p.y + r > hit.y && p.y - r < bottom) {
+            let place = { x: p.x, y: bottom + r + 0.02 };
+            while (pins.slice(0, k).some((o) => Math.hypot((o.place ?? o.at).x - place.x, (o.place ?? o.at).y - place.y) < 2 * r))
+              place = { x: place.x + 2 * r, y: place.y };
+            pin.place = place;
+            moved = true;
+          }
+        });
+      });
+      if (!moved) break;
+    }
   };
   /** A pointer's place on the board, in the kit's pixels at scale 1. */
   const onBoard = (e: { clientX: number; clientY: number }): Pt | null => {
@@ -702,7 +721,7 @@ export function LatticeTable(props: Props) {
                 {/* A finger-sized target round the label: tap it to pick the section. */}
                 <rect
                   className="label-hit"
-                  {...labelHit(sec)}
+                  {...labelHits[s]}
                   onClick={() => setPicked({ pieceId: sec.pieceId, tone: sec.parts[0]!.tone, at: centroid(partPolygon(sec.parts[0]!)) })}
                 />
                 <text

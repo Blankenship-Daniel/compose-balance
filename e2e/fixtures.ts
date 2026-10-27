@@ -91,7 +91,21 @@ export async function open(page: Page, o: Open = {}) {
   const hash = o.form === undefined ? "" : `#f=${encodeURIComponent(o.form)}&bpm=${o.bpm ?? 100}&m=${encodeURIComponent(o.meter ?? "4/4")}${o.era ? `&era=${o.era}` : ""}`;
   await page.goto(`/${hash}`);
   await expect(page.locator(".masthead")).toBeVisible();
-  if ((o.view ?? "table") === "table" && o.form) await expect(page.locator(".section-outline").first()).toBeAttached();
+  if ((o.view ?? "table") === "table" && o.form) {
+    await expect(page.locator(".section-outline").first()).toBeAttached();
+    // The first frame is drawn at a default width, before the table has been measured.
+    await expect
+      .poll(() => page.evaluate(() => document.querySelector("lattice-board")!.getBoundingClientRect().right <= document.querySelector(".table")!.getBoundingClientRect().right + 1))
+      .toBe(true);
+  }
+}
+
+/** A toolbar control, opening the phone toolbar's Settings first when it is folded away there. */
+export async function toolbarButton(page: Page, name: string) {
+  const button = page.getByRole("button", { name, exact: true });
+  const settings = page.getByRole("button", { name: "Settings", exact: true });
+  if (!(await button.isVisible()) && (await settings.isVisible())) await settings.click();
+  return button;
 }
 
 /** The URL hash's parameters: the app writes the song, tempo, meter and era there on every change. */

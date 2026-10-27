@@ -23,8 +23,8 @@ export default defineConfig({
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 } }, testIgnore: /phone/ },
     // Under the stylesheet's 640px phone breakpoint, but the board still over its own 520px one.
-    { name: "between", use: { ...devices["Desktop Chrome"], viewport: { width: 600, height: 900 } }, testMatch: /responsive|visual/ },
-    { name: "phone", use: { ...devices["Pixel 7"] }, testMatch: /responsive|phone|visual/ },
+    { name: "between", use: { ...devices["Desktop Chrome"], viewport: { width: 600, height: 900 } }, testMatch: /responsive|visual|shears|layout/ },
+    { name: "phone", use: { ...devices["Pixel 7"] }, testMatch: /responsive|phone|visual|shears|layout/ },
     { name: "dark", use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 }, colorScheme: "dark" }, testMatch: /visual/ },
   ],
 });
