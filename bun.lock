@@ -5,7 +5,7 @@
     "": {
       "name": "compose-balance",
       "dependencies": {
-        "@harmonics/lattice-ui": "^0.8.1",
+        "@harmonics/lattice-ui": "^0.9.0",
         "react": "^19.3.1",
         "react-dom": "^19.3.1",
       },
@@ -20,7 +20,7 @@
     },
   },
   "packages": {
-    "@harmonics/lattice-ui": ["@harmonics/lattice-ui@0.8.1", "", {}, "sha512-ByzOQEGqPKR6zosvk1T6Kvt3dYs42GjUl5u2ge8r93d9vBgVjtfP+WOkAMaW2pCw1HpxiReJFyvE97uxoASFkA=="],
+    "@harmonics/lattice-ui": ["@harmonics/lattice-ui@0.9.0", "", {}, "sha512-r086E05EQ2EF8DGjTrDdvOLx6hFnBUg1uy5xvLjmF6VTggupH+5ln6Y5kyBGBu0pLImtP1imPWlLXcKx9+U8jg=="],
 
     "@jridgewell/resolve-uri": ["@jridgewell/resolve-uri@3.1.2", "", {}, "sha512-bRISgCIjP20/tbWSPWMEi54QVPRZExkuD9lJL+UIxUKtwVJA8wW1Trb1jMs1RFXo1CBTNZ/5hpC9QvmKWdopKw=="],
 

@@ -50,3 +50,14 @@ describe("SALAMI import", () => {
     expect(fromAnnotation("nonsense", opts).notes.length).toBeGreaterThan(0);
   });
 });
+
+describe("post-chorus", () => {
+  it("round-trips through notation and a Billboard file", () => {
+    const { sections, errors } = parse("Vs8 Ch8 Post4 Vs8 Ch8 post-chorus4");
+    expect(errors).toEqual([]);
+    expect(format(sections)).toBe("Vs8 Ch8 Post4 Vs8 Ch8 Post4");
+    const text = toBillboard(sections, opts);
+    expect(text).toContain("post-chorus");
+    expect(format(fromAnnotation(text, opts).sections)).toBe("Vs8 Ch8 Post4 Vs8 Ch8 Post4");
+  });
+});

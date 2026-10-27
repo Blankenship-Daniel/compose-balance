@@ -51,7 +51,12 @@ export function Help({ onClose }: { onClose(): void }) {
             </li>
             <li>The song reads the table like a page: rows top to bottom, left to right. Numbers on the labels and a dotted thread show the order. Tidy up lays it all out neatly again, in that order; Undo puts your arrangement back.</li>
             <li>A hand-off drawn solid red or ochre is where a note applies; hover it to see which. During playback the thread fills in and a dot steps from bar to bar.</li>
-            <li>A dashed outline shows where a short section's phrase would finish; click it to fill it. Shears take a bar off every section a stroke goes clean through.</li>
+            <li>Point at a short section (or tap it) and a dashed outline shows where its phrase would finish, with the bars it adds; click it to fill it. A flagged section shows it all the time. Shears take a bar off every section a stroke goes clean through.</li>
+            <li>
+              On a phone or tablet, tap a section (or its label) to pick it: the tray becomes its actions, one bar shorter
+              or longer, turn, glue, break apart, pull a bar off, play from here and remove. Done brings the shapes back.
+              On a computer, click a label for the same.
+            </li>
             <li>Keyboard: Tab to a section's label; + and − change its length, Delete removes it, Enter plays from it.</li>
           </ul>
           <h3>The chart</h3>
@@ -80,6 +85,11 @@ export function Help({ onClose }: { onClose(): void }) {
             They come from phrase-rhythm theory, songwriting teaching and chart studies. Each note says how strong its
             evidence is, with sources one click away. Balance is partly a matter of style, so read warnings as
             questions.
+          </p>
+          <p>
+            The limits are measured from real hits: about 900 modern pop songs (the Harmonix Set) or about 740 Hot 100
+            songs from 1958–1991 (McGill Billboard), picked in the toolbar. Something most hits do gets a note, not a
+            warning; a song only reads as unbalanced when its odd lengths add up to more than 9 in 10 of those hits have.
           </p>
         </div>
       </div>

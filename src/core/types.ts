@@ -6,6 +6,7 @@ export type Role =
   | "verse"
   | "prechorus"
   | "chorus"
+  | "postchorus"
   | "bridge"
   | "solo"
   | "instrumental"
@@ -29,9 +30,14 @@ export type FormType =
   | "12-bar-blues"
   | "unknown";
 
+/** Which hits the rules compare against (see corpus.ts). */
+export type Era = "classic" | "modern";
+
 export interface Options {
   bpm: number;
   meter: Meter;
+  /** Defaults to DEFAULT_ERA. */
+  era?: Era;
 }
 
 export type Severity = "problem" | "warning" | "info";
@@ -69,4 +75,16 @@ export interface Report {
   totalBars: number;
   seconds: number;
   findings: Finding[];
+  /** How the song's grid irregularity ranks among the era's hits. */
+  grid: {
+    /** Corpus name, e.g. "Harmonix". */
+    corpus: string;
+    era: Era;
+    /** Share of the era's hits more irregular than this song. */
+    moreRegularThan: number;
+    /** Every section sits on the 4-bar grid (intentional ones aside). */
+    onGrid: boolean;
+    /** Share of the era's hits with every section on the grid. */
+    onGridShare: number;
+  };
 }

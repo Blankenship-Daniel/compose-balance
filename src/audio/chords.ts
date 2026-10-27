@@ -19,6 +19,7 @@ export const LOOPS: Record<Role, string[]> = {
   verse: ["Am", "F", "C", "G"],
   prechorus: ["Dm", "Em", "F", "G"],
   chorus: ["C", "G", "Am", "F"],
+  postchorus: ["F", "G", "C", "C"],
   bridge: ["F", "G", "Em", "Am"],
   solo: ["Am", "F", "C", "G"],
   instrumental: ["Am", "F", "C", "G"],

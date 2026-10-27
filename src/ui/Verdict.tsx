@@ -17,6 +17,15 @@ function counts(report: Report): string {
   return parts.length ? parts.join(", ") : "Nothing to fix";
 }
 
+/** Where the song's phrase lengths rank among the era's hits: "More regular than 72% of modern hits". */
+function gridRank(report: Report): string {
+  const { era, moreRegularThan, onGrid, onGridShare } = report.grid;
+  const pct = (p: number) => `${Math.round(p * 100)}%`;
+  return onGrid
+    ? `Every section on the grid, like ${pct(onGridShare)} of ${era} hits`
+    : `More regular than ${pct(moreRegularThan)} of ${era} hits`;
+}
+
 /** The verdict, worn by the lattice face: it laughs with relief whenever an edit improves it. */
 export function Verdict({
   report,
@@ -71,6 +80,14 @@ export function Verdict({
           >
             {notes} {notes === 1 ? "note" : "notes"}
           </a>
+        )}
+        {!empty && (
+          <span
+            className="verdict-rank"
+            title={`Phrase lengths against the ${report.grid.corpus} corpus: how many of its songs are further off the 4-bar grid than this one`}
+          >
+            {gridRank(report)}
+          </span>
         )}
       </div>
     </header>

@@ -6,7 +6,7 @@ import type { Finding, Role, Section, Severity } from "../core/types.ts";
 import { Mark } from "./marks.tsx";
 
 const COMMON: Role[] = ["intro", "verse", "prechorus", "chorus", "bridge", "outro"];
-const MORE: Role[] = ["solo", "instrumental", "interlude", "transition", "coda"];
+const MORE: Role[] = ["postchorus", "solo", "instrumental", "interlude", "transition", "coda"];
 const RANK: Record<Severity, number> = { problem: 3, warning: 2, info: 1 };
 const PER_LINE = 4;
 

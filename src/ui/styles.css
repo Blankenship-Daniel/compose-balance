@@ -205,6 +205,10 @@ h1 {
   color: var(--ink);
 }
 
+.verdict-rank {
+  color: var(--ink-soft);
+}
+
 .verdict-balanced .verdict-word {
   color: var(--green);
 }
@@ -1220,10 +1224,18 @@ lattice-icon {
 .section-outline {
   fill: none;
   stroke: none;
+  /* Up by the board's lift on a resting piece (0.5rem, in block edges of 44px), so the edge sits
+     on the piece's top, not on the sky under it. */
+  transform: translateY(-0.18px);
   stroke-width: 2.5px;
   stroke-linecap: round;
   vector-effect: non-scaling-stroke;
   pointer-events: none;
+}
+
+.section-outline.is-hollow {
+  stroke: var(--c);
+  stroke-width: 2.5px;
 }
 
 .section-outline.flag-warning {
@@ -1244,28 +1256,78 @@ lattice-icon {
 }
 
 /* Where a short section's last phrase would finish: click to fill it. A faint fill so even a thin
-   rhombus reads as a shape waiting to be placed, not a stray dash. */
+   rhombus reads as a shape waiting to be placed, not a stray dash. It fades in, since it appears
+   when a section is hovered or picked. */
+.ghost-group {
+  cursor: pointer;
+  animation: ghost-in 160ms ease-out;
+}
+
+@keyframes ghost-in {
+  from {
+    opacity: 0;
+  }
+}
+
 .ghost {
-  fill: color-mix(in srgb, var(--ink) 9%, transparent);
+  fill: color-mix(in srgb, var(--ink) 6%, transparent);
+  stroke: none;
+}
+
+.ghost-edge {
+  fill: none;
   stroke: var(--ink-soft);
   stroke-width: 1.4px;
   stroke-dasharray: 5 4;
   vector-effect: non-scaling-stroke;
-  cursor: pointer;
 }
 
-.ghost.flag-warning {
-  stroke: var(--ochre);
+.ghost-group.flag-warning .ghost {
   fill: color-mix(in srgb, var(--ochre) 12%, transparent);
 }
 
-.ghost.flag-problem {
-  stroke: var(--red);
+.ghost-group.flag-warning .ghost-edge {
+  stroke: var(--ochre);
+}
+
+.ghost-group.flag-problem .ghost {
   fill: color-mix(in srgb, var(--red) 10%, transparent);
 }
 
-.ghost:hover {
-  fill: color-mix(in srgb, var(--ink) 7%, transparent);
+.ghost-group.flag-problem .ghost-edge {
+  stroke: var(--red);
+}
+
+/* The whole ghost lights as one, however many pieces it is in. */
+.ghost-group:hover .ghost {
+  fill: color-mix(in srgb, var(--ink) 14%, transparent);
+}
+
+.ghost-group:hover .ghost-edge {
+  stroke-dasharray: none;
+}
+
+/* How many bars a click adds. */
+.ghost-label {
+  font: 600 0.36px var(--display);
+  fill: var(--ink-soft);
+  stroke: var(--paper);
+  stroke-width: 0.1px;
+  paint-order: stroke;
+}
+
+.ghost-group.flag-warning .ghost-label {
+  fill: var(--ochre);
+}
+
+.ghost-group.flag-problem .ghost-label {
+  fill: var(--red);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ghost-group {
+    animation: none;
+  }
 }
 
 /* A section's label: its code and length, and the handle that moves the whole section. */
@@ -1391,6 +1453,16 @@ lattice-icon {
   stroke-linecap: round;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
+}
+
+/* Where a line break's two ends stop: a dot on each, so the pair reads as one hand-off. */
+.thread-dot {
+  fill: color-mix(in srgb, var(--ink) 62%, transparent);
+}
+
+.thread-dot.is-played,
+.thread-dot.is-now {
+  fill: var(--ink);
 }
 
 .thread.is-played {
@@ -1661,7 +1733,7 @@ lattice-icon {
   pointer-events: none;
 }
 
-.overlay .ghost {
+.overlay .ghost-group {
   pointer-events: visiblePainted;
 }
 
@@ -1674,10 +1746,30 @@ lattice-icon {
   opacity: 0.9;
 }
 
-/* Tidy up: at the tray's far end, apart from the shapes. */
+/* Before the rarer shapes: a full-width break, so they wrap to a row of their own. */
+.tray-break {
+  flex-basis: 100%;
+  height: 0;
+}
+
+/* Tidy up: at the tray's far end, apart from the shapes. On a wide screen it holds the top right
+   corner, so opening More… wraps the shapes beside it instead of pushing it down a row. */
 .tray .tidy {
   margin-left: auto;
   flex: none;
+}
+
+@media (min-width: 641px) {
+  .tray:not(.is-actions):has(.tidy) {
+    position: sticky;
+    padding-right: 128px;
+  }
+
+  .tray:not(.is-actions) .tidy {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+  }
 }
 
 /* The bar being played: the piece itself picked up off the board, in its section's own colour
@@ -1760,5 +1852,139 @@ lattice-icon {
   .bar-lit-top,
   .bar-lit-halo {
     animation: none;
+  }
+}
+
+/* ---- Phones and fingers ---- */
+
+/* The settings toggle and the toolbar's Tidy up are for phones; on a wide screen everything shows. */
+.settings-toggle,
+.toolbar-tidy {
+  display: none;
+}
+
+/* Tapping a section's label picks it; the target is finger-sized, the label itself unchanged. */
+.label-hit {
+  fill: transparent;
+  pointer-events: all;
+  cursor: pointer;
+}
+
+/* A flagged hand-off can be tapped to open its note. */
+.thread-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 18px;
+  vector-effect: non-scaling-stroke;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+/* A pin's hexagon is small; its tap target is 44px. */
+.pin::before {
+  content: "";
+  position: absolute;
+  inset: -9px;
+}
+
+/* The picked section's actions, in the tray. */
+.section-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.section-actions button {
+  min-height: 40px;
+  min-width: 40px;
+}
+
+.section-actions-name {
+  font-weight: 700;
+  margin-right: 6px;
+  white-space: nowrap;
+}
+
+.section-actions .danger {
+  color: var(--red);
+}
+
+.section-actions .section-actions-close {
+  margin-left: auto;
+}
+
+@media (max-width: 640px) {
+  /* One row while closed: Play, the time, Settings and Undo; tempo, meter and the rest open below. */
+  .settings-toggle {
+    display: inline-flex;
+    margin-left: auto;
+  }
+  .toolbar:not(.settings-open) .tempo,
+  .toolbar:not(.settings-open) .meter,
+  .toolbar:not(.settings-open) .toolbar-actions > :not(.undo) {
+    display: none;
+  }
+  .toolbar:not(.settings-open) .toolbar-actions {
+    flex-basis: auto;
+  }
+  .toolbar-tidy {
+    display: inline-flex;
+  }
+  .toolbar.settings-open .toolbar-actions {
+    flex-wrap: wrap;
+  }
+  .tray .tidy {
+    display: none;
+  }
+
+  /* Finger-sized targets. */
+  .toolbar button,
+  .toolbar .tempo,
+  .toolbar .meter {
+    min-height: 44px;
+  }
+  .toolbar .undo,
+  .toolbar .menu-button {
+    min-width: 44px;
+  }
+  .verdict-counts {
+    display: inline-block;
+    padding-block: 10px;
+  }
+  .tray-block,
+  .tray .add-more {
+    min-height: 44px;
+  }
+
+  /* The tray scrolls in one row here: no break before the rarer shapes. */
+  .tray-break {
+    display: none;
+  }
+
+  /* The tray scrolls sideways: its shapes fade at the right edge so it reads as more to come
+     (a gradient over the shapes, stuck to the edge; the tray's own card stays solid). */
+  .tray:not(.is-actions)::after {
+    content: "";
+    position: sticky;
+    right: -12px;
+    flex: none;
+    align-self: stretch;
+    width: 40px;
+    margin-left: -40px;
+    margin-right: -12px;
+    background: linear-gradient(to right, transparent, var(--sheet));
+    pointer-events: none;
+  }
+  .section-actions {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .section-actions button {
+    flex: none;
+    min-height: 44px;
+    min-width: 44px;
   }
 }
