@@ -1,0 +1,142 @@
+{
+ "meta": {
+  "name": "Black and Green Guitars, green, sustained",
+  "license": "CC0-1.0 (Karoryfer Samples)",
+  "source": "https://github.com/sfzinstruments/karoryfer.black-and-green-guitars/tree/b3b3249d37dc977a1a297bd2dc053e6d9b6b805c"
+ },
+ "samples": {
+  "baseUrl": "./",
+  "formats": [
+   "m4a"
+  ]
+ },
+ "defaults": {
+  "ampRelease": 0.3
+ },
+ "groups": [
+  {
+   "regions": [
+    {
+     "sample": "clean-guitar-0",
+     "pitch": 40,
+     "keyRange": [
+      34,
+      41
+     ]
+    },
+    {
+     "sample": "clean-guitar-1",
+     "pitch": 43,
+     "keyRange": [
+      42,
+      44
+     ]
+    },
+    {
+     "sample": "clean-guitar-2",
+     "pitch": 46,
+     "keyRange": [
+      45,
+      47
+     ]
+    },
+    {
+     "sample": "clean-guitar-3",
+     "pitch": 49,
+     "keyRange": [
+      48,
+      50
+     ]
+    },
+    {
+     "sample": "clean-guitar-4",
+     "pitch": 52,
+     "keyRange": [
+      51,
+      53
+     ]
+    },
+    {
+     "sample": "clean-guitar-5",
+     "pitch": 55,
+     "keyRange": [
+      54,
+      56
+     ]
+    },
+    {
+     "sample": "clean-guitar-6",
+     "pitch": 58,
+     "keyRange": [
+      57,
+      59
+     ]
+    },
+    {
+     "sample": "clean-guitar-7",
+     "pitch": 61,
+     "keyRange": [
+      60,
+      62
+     ]
+    },
+    {
+     "sample": "clean-guitar-8",
+     "pitch": 64,
+     "keyRange": [
+      63,
+      65
+     ]
+    },
+    {
+     "sample": "clean-guitar-9",
+     "pitch": 67,
+     "keyRange": [
+      66,
+      68
+     ]
+    },
+    {
+     "sample": "clean-guitar-10",
+     "pitch": 70,
+     "keyRange": [
+      69,
+      71
+     ]
+    },
+    {
+     "sample": "clean-guitar-11",
+     "pitch": 73,
+     "keyRange": [
+      72,
+      74
+     ]
+    },
+    {
+     "sample": "clean-guitar-12",
+     "pitch": 76,
+     "keyRange": [
+      75,
+      77
+     ]
+    },
+    {
+     "sample": "clean-guitar-13",
+     "pitch": 79,
+     "keyRange": [
+      78,
+      80
+     ]
+    },
+    {
+     "sample": "clean-guitar-14",
+     "pitch": 82,
+     "keyRange": [
+      81,
+      90
+     ]
+    }
+   ]
+  }
+ ]
+}

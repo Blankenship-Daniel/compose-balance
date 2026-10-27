@@ -1,0 +1,142 @@
+{
+ "meta": {
+  "name": "VSCO 2 CE flute and clarinet, sustained",
+  "license": "CC0-1.0 (Versilian Studios, VSCO 2 Community Edition)",
+  "source": "https://github.com/sgossner/VSCO-2-CE/tree/440300901dfe9275fd84e0b7763af1f8443ae62e"
+ },
+ "samples": {
+  "baseUrl": "./",
+  "formats": [
+   "m4a"
+  ]
+ },
+ "defaults": {
+  "ampRelease": 0.3
+ },
+ "groups": [
+  {
+   "regions": [
+    {
+     "sample": "vsco-woodwinds-0",
+     "pitch": 53,
+     "keyRange": [
+      47,
+      55
+     ]
+    },
+    {
+     "sample": "vsco-woodwinds-1",
+     "pitch": 58,
+     "keyRange": [
+      56,
+      59
+     ]
+    },
+    {
+     "sample": "vsco-woodwinds-2",
+     "pitch": 60,
+     "keyRange": [
+      60,
+      61
+     ]
+    },
+    {
+     "sample": "vsco-woodwinds-3",
+     "pitch": 62,
+     "keyRange": [
+      62,
+      63
+     ]
+    },
+    {
+     "sample": "vsco-woodwinds-4",
+     "pitch": 65,
+     "keyRange": [
+      64,
+      67
+     ]
+    },
+    {
+     "sample": "vsco-woodwinds-5",
+     "pitch": 69,
+     "keyRange": [
+      68,
+      70
+     ]
+    },
+    {
+     "sample": "vsco-woodwinds-6",
+     "pitch": 72,
+     "keyRange": [
+      71,
+      73
+     ]
+    },
+    {
+     "sample": "vsco-woodwinds-7",
+     "pitch": 74,
+     "keyRange": [
+      74,
+      75
+     ]
+    },
+    {
+     "sample": "vsco-woodwinds-8",
+     "pitch": 77,
+     "keyRange": [
+      76,
+      79
+     ]
+    },
+    {
+     "sample": "vsco-woodwinds-9",
+     "pitch": 81,
+     "keyRange": [
+      80,
+      82
+     ]
+    },
+    {
+     "sample": "vsco-woodwinds-10",
+     "pitch": 84,
+     "keyRange": [
+      83,
+      85
+     ]
+    },
+    {
+     "sample": "vsco-woodwinds-11",
+     "pitch": 86,
+     "keyRange": [
+      86,
+      88
+     ]
+    },
+    {
+     "sample": "vsco-woodwinds-12",
+     "pitch": 90,
+     "keyRange": [
+      89,
+      91
+     ]
+    },
+    {
+     "sample": "vsco-woodwinds-13",
+     "pitch": 93,
+     "keyRange": [
+      92,
+      94
+     ]
+    },
+    {
+     "sample": "vsco-woodwinds-14",
+     "pitch": 96,
+     "keyRange": [
+      95,
+      102
+     ]
+    }
+   ]
+  }
+ ]
+}

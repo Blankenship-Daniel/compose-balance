@@ -61,10 +61,10 @@ export function Help({ onClose }: { onClose(): void }) {
           </ul>
           <h3>The chart</h3>
           <ul>
-            <li>Build the form with the + buttons under the chart, or use Text to type it.</li>
+            <li>Build the form with the + buttons under the chart, or use Text to type it. To start from a real song, pick Load a real hit in the ⋯ menu.</li>
             <li>Four bars to a line. A short line means the section stops partway through a phrase.</li>
             <li>Click an empty slot at the end of a line to add bars up to it.</li>
-            <li>Click any bar to play from there. Space plays and stops.</li>
+            <li>Click any bar to play from there. Space plays and stops. Band plays chords, bass and drums, busier in choruses, with a fill into each new section; pick the instruments, and an optional pad, in ⋯ → Instruments. Each instrument takes a few seconds to load the first time. Click plays plain chords with a click on every beat.</li>
             <li>Drag a section by its shape to move it. Cmd/Ctrl+Z undoes.</li>
             <li>
               Shears: turn them on, then drag across a section to cut it at the nearest barline, or across its shape
@@ -76,7 +76,7 @@ export function Help({ onClose }: { onClose(): void }) {
               quarters in 6/8 and 12/8.
             </li>
             <li>The length next to the time signature follows the tempo and time signature.</li>
-            <li>The chords are placeholders so you can hear the form, not your song’s harmony.</li>
+            <li>The chords are placeholders so you can hear the form, not your song’s harmony. A classic hit loaded from the ⋯ menu plays its real chords instead, and they move with their sections.</li>
           </ul>
         </div>
         <div>

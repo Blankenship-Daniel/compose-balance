@@ -1,0 +1,134 @@
+{
+ "meta": {
+  "name": "Cello, bowed",
+  "license": "CC0-1.0 (Karoryfer Samples and Bigcat Instruments)",
+  "source": "https://github.com/sfzinstruments/karoryfer-bigcat.cello/tree/6fd75fbfc1dbb3109bf26220ba1adea46188a18b"
+ },
+ "samples": {
+  "baseUrl": "./",
+  "formats": [
+   "m4a"
+  ]
+ },
+ "defaults": {
+  "ampRelease": 0.3
+ },
+ "groups": [
+  {
+   "regions": [
+    {
+     "sample": "cello-0",
+     "pitch": 36,
+     "keyRange": [
+      30,
+      37
+     ]
+    },
+    {
+     "sample": "cello-1",
+     "pitch": 39,
+     "keyRange": [
+      38,
+      40
+     ]
+    },
+    {
+     "sample": "cello-2",
+     "pitch": 42,
+     "keyRange": [
+      41,
+      43
+     ]
+    },
+    {
+     "sample": "cello-3",
+     "pitch": 45,
+     "keyRange": [
+      44,
+      46
+     ]
+    },
+    {
+     "sample": "cello-4",
+     "pitch": 48,
+     "keyRange": [
+      47,
+      49
+     ]
+    },
+    {
+     "sample": "cello-5",
+     "pitch": 51,
+     "keyRange": [
+      50,
+      52
+     ]
+    },
+    {
+     "sample": "cello-6",
+     "pitch": 54,
+     "keyRange": [
+      53,
+      55
+     ]
+    },
+    {
+     "sample": "cello-7",
+     "pitch": 57,
+     "keyRange": [
+      56,
+      58
+     ]
+    },
+    {
+     "sample": "cello-8",
+     "pitch": 60,
+     "keyRange": [
+      59,
+      61
+     ]
+    },
+    {
+     "sample": "cello-9",
+     "pitch": 63,
+     "keyRange": [
+      62,
+      64
+     ]
+    },
+    {
+     "sample": "cello-10",
+     "pitch": 66,
+     "keyRange": [
+      65,
+      67
+     ]
+    },
+    {
+     "sample": "cello-11",
+     "pitch": 69,
+     "keyRange": [
+      68,
+      70
+     ]
+    },
+    {
+     "sample": "cello-12",
+     "pitch": 71,
+     "keyRange": [
+      71,
+      73
+     ]
+    },
+    {
+     "sample": "cello-13",
+     "pitch": 75,
+     "keyRange": [
+      74,
+      82
+     ]
+    }
+   ]
+  }
+ ]
+}

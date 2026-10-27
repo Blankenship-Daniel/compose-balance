@@ -1,6 +1,6 @@
 /**
  * Section statistics measured from real hits, one corpus per era:
- * McGill Billboard for 1958–1991, the Harmonix Set for roughly the 1990s–2010s.
+ * McGill Billboard for 1958–1991, the Harmonix Set for roughly 1990–2015 (median 2009).
  * Rebuild with `node scripts/corpus-stats.ts <dir>`; see docs/research.md.
  */
 import billboard from "./corpus/billboard.json" with { type: "json" };
@@ -178,7 +178,7 @@ export function corpusFor(era: Era = DEFAULT_ERA): Corpus {
 }
 
 export const ERA_NAME: Record<Era, string> = {
-  modern: "Modern hits (1990s–2010s)",
+  modern: "Modern hits (1990–2015)",
   classic: "Classic hits (1958–1991)",
 };
 

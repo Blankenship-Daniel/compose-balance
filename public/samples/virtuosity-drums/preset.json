@@ -1,0 +1,105 @@
+{
+ "meta": {
+  "name": "Virtuosity Drums, basic kit",
+  "license": "CC0-1.0 (Versilian Studios and Karoryfer Samples)",
+  "source": "https://github.com/sfzinstruments/virtuosity_drums/tree/9f04cf9a734527edfbb0a4eee1f674e45bbf71bc"
+ },
+ "samples": {
+  "baseUrl": "./",
+  "formats": [
+   "m4a"
+  ]
+ },
+ "defaults": {
+  "ampRelease": 0.05
+ },
+ "groups": [
+  {
+   "regions": [
+    {
+     "sample": "kick",
+     "key": 36,
+     "keyRange": [
+      36,
+      36
+     ]
+    },
+    {
+     "sample": "snare",
+     "key": 38,
+     "keyRange": [
+      38,
+      38
+     ]
+    },
+    {
+     "sample": "hihat",
+     "key": 42,
+     "keyRange": [
+      42,
+      42
+     ]
+    },
+    {
+     "sample": "hihat-open",
+     "key": 46,
+     "keyRange": [
+      46,
+      46
+     ]
+    },
+    {
+     "sample": "crash",
+     "key": 49,
+     "keyRange": [
+      49,
+      49
+     ]
+    },
+    {
+     "sample": "tom-1",
+     "key": 48,
+     "keyRange": [
+      48,
+      48
+     ]
+    },
+    {
+     "sample": "tom-2",
+     "key": 50,
+     "keyRange": [
+      50,
+      50
+     ]
+    },
+    {
+     "sample": "tom-3",
+     "key": 41,
+     "keyRange": [
+      41,
+      41
+     ]
+    },
+    {
+     "sample": "tom-4",
+     "key": 43,
+     "keyRange": [
+      43,
+      43
+     ]
+    }
+   ]
+  }
+ ],
+ "aliases": {
+  "kick": 36,
+  "snare": 38,
+  "hihat": 42,
+  "hihat-open": 46,
+  "crash": 49,
+  "tom-1": 48,
+  "tom-2": 50,
+  "tom-3": 41,
+  "tom-4": 43
+ }
+}

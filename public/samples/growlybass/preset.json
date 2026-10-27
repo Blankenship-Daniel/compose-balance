@@ -1,0 +1,86 @@
+{
+ "meta": {
+  "name": "Growlybass, clean",
+  "license": "CC0-1.0 (Karoryfer Samples)",
+  "source": "https://github.com/sfzinstruments/karoryfer.growlybass/tree/4f483268fc66b5a6d5781d421c0d11b8d08d3fc6"
+ },
+ "samples": {
+  "baseUrl": "./",
+  "formats": [
+   "m4a"
+  ]
+ },
+ "defaults": {
+  "ampRelease": 0.3
+ },
+ "groups": [
+  {
+   "regions": [
+    {
+     "sample": "growlybass-0",
+     "pitch": 28,
+     "keyRange": [
+      22,
+      29
+     ]
+    },
+    {
+     "sample": "growlybass-1",
+     "pitch": 30,
+     "keyRange": [
+      30,
+      31
+     ]
+    },
+    {
+     "sample": "growlybass-2",
+     "pitch": 33,
+     "keyRange": [
+      32,
+      34
+     ]
+    },
+    {
+     "sample": "growlybass-3",
+     "pitch": 36,
+     "keyRange": [
+      35,
+      37
+     ]
+    },
+    {
+     "sample": "growlybass-4",
+     "pitch": 39,
+     "keyRange": [
+      38,
+      40
+     ]
+    },
+    {
+     "sample": "growlybass-5",
+     "pitch": 42,
+     "keyRange": [
+      41,
+      43
+     ]
+    },
+    {
+     "sample": "growlybass-6",
+     "pitch": 45,
+     "keyRange": [
+      44,
+      46
+     ]
+    },
+    {
+     "sample": "growlybass-7",
+     "pitch": 47,
+     "keyRange": [
+      47,
+      55
+     ]
+    }
+   ]
+  }
+ ]
+}

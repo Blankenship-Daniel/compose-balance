@@ -1,0 +1,86 @@
+{
+ "meta": {
+  "name": "War Tuba, solo",
+  "license": "CC0-1.0 (Karoryfer Samples)",
+  "source": "https://github.com/sfzinstruments/karoryfer.war-tuba/tree/5b62dd6ef6b00281bb734769e44a63f5e013018a"
+ },
+ "samples": {
+  "baseUrl": "./",
+  "formats": [
+   "m4a"
+  ]
+ },
+ "defaults": {
+  "ampRelease": 0.3
+ },
+ "groups": [
+  {
+   "regions": [
+    {
+     "sample": "war-tuba-0",
+     "pitch": 29,
+     "keyRange": [
+      22,
+      30
+     ]
+    },
+    {
+     "sample": "war-tuba-1",
+     "pitch": 31,
+     "keyRange": [
+      31,
+      32
+     ]
+    },
+    {
+     "sample": "war-tuba-2",
+     "pitch": 34,
+     "keyRange": [
+      33,
+      35
+     ]
+    },
+    {
+     "sample": "war-tuba-3",
+     "pitch": 37,
+     "keyRange": [
+      36,
+      38
+     ]
+    },
+    {
+     "sample": "war-tuba-4",
+     "pitch": 40,
+     "keyRange": [
+      39,
+      41
+     ]
+    },
+    {
+     "sample": "war-tuba-5",
+     "pitch": 43,
+     "keyRange": [
+      42,
+      44
+     ]
+    },
+    {
+     "sample": "war-tuba-6",
+     "pitch": 46,
+     "keyRange": [
+      45,
+      47
+     ]
+    },
+    {
+     "sample": "war-tuba-7",
+     "pitch": 49,
+     "keyRange": [
+      48,
+      55
+     ]
+    }
+   ]
+  }
+ ]
+}
