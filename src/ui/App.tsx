@@ -91,8 +91,8 @@ export function App() {
   // Bumped by the verdict's link to open the board's first pinned note.
   const [openFirst, setOpenFirst] = useState(0);
   const [openShelf, setOpenShelf] = useState(0);
-  // Phones: the toolbar's settings row, shown on demand.
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  // Phones: the toolbar's tools row, shown on demand.
+  const [toolsOpen, setToolsOpen] = useState(false);
   const [shears, setShears] = useState(false);
   // The chart is the main editor; text entry is opt-in and remembered per browser.
   const [typing, setTypingState] = useState(() => readPref("typing") === "1");
@@ -157,7 +157,8 @@ export function App() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") return keys.current.close();
       if (isTyping(e.target)) return;
-      if (e.key === " " && !(e.target instanceof HTMLButtonElement)) {
+      // A button's own Space presses it: a section's label, too, which is a button drawn in SVG.
+      if (e.key === " " && !(e.target instanceof HTMLButtonElement) && !(e.target instanceof Element && e.target.getAttribute("role") === "button")) {
         e.preventDefault();
         keys.current.togglePlay();
       } else if (e.key === "z" && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
@@ -233,7 +234,7 @@ export function App() {
     update(sections, flow(sections, tableWidth));
     // Tidied, the table is the app's layout again: it reflows when the window changes.
     setAutoLayout(true);
-    setSettingsOpen(false);
+    setToolsOpen(false);
   }
 
   function loadPreset(name: string) {
@@ -311,7 +312,8 @@ export function App() {
         onOpenShelf={() => (view === "table" ? setOpenShelf((n) => n + 1) : document.getElementById("findings")?.scrollIntoView({ behavior: "smooth" }))}
       />
 
-      <div className={`toolbar ${settingsOpen ? "settings-open" : ""}`}>
+      <div className={`toolbar ${toolsOpen ? "tools-open" : ""}`}>
+        {/* Play, the time, Undo and the menu are always in the row; the tools fold behind a button on phones. */}
         <div className="toolbar-row">
           <button
             className="play"
@@ -325,44 +327,17 @@ export function App() {
             </span>
             {loadingSound ? "Loading…" : playing ? "Stop" : "Play"}
           </button>
-          <label className="tempo" title={`Tempo: ${beatNote.name} notes per minute`}>
-            <span className="tempo-note" aria-hidden>
-              {beatNote.symbol}
-            </span>
-            <input
-              type="number"
-              min={20}
-              max={400}
-              value={opts.bpm}
-              aria-label={`Tempo in ${beatNote.name} notes per minute`}
-              onChange={(e) => setOption({ bpm: clampBpm(e.target.value) })}
-            />
-            <span className="tempo-unit" aria-hidden>
-              bpm
-            </span>
-          </label>
-          <input
-            className="meter"
-            list="common-meters"
-            value={meterText}
-            aria-label="Time signature"
-            aria-invalid={meterError !== null}
-            title="Time signature: pick one or type any, like 7/8 or 2+2+3/8"
-            spellCheck={false}
-            autoComplete="off"
-            onChange={(e) => onMeterText(e.target.value)}
-            onFocus={(e) => e.target.select()}
-            onBlur={() => !meterError && setMeterText(formatMeter(opts.meter))}
-          />
-          <datalist id="common-meters">
-            {COMMON_METERS.map((m) => (
-              <option key={m} value={m} />
-            ))}
-          </datalist>
           {sections.length > 0 && (
             <span className="duration" aria-label="Song length" title="Song length at this tempo and time signature">
-              {playing && <>{formatSeconds(secondsFor(playBar, opts))} / </>}
-              {formatSeconds(report.seconds)}
+              {playing ? (
+                <>
+                  {formatSeconds(secondsFor(playBar, opts))}
+                  {/* The total drops out on the narrowest phones, so the row keeps to one line. */}
+                  <span className="duration-total"> / {formatSeconds(report.seconds)}</span>
+                </>
+              ) : (
+                formatSeconds(report.seconds)
+              )}
             </span>
           )}
           {sections.some((s) => s.chords) && (
@@ -370,66 +345,102 @@ export function App() {
               Song’s chords
             </span>
           )}
-          {/* Phones: one row of Play, the time, Undo and this; the rest opens below it. */}
-          <button
-            className="settings-toggle"
-            aria-expanded={settingsOpen}
-            aria-controls="toolbar-settings"
-            onClick={() => setSettingsOpen((v) => !v)}
-          >
-            {settingsOpen ? "Close" : "Settings"}
-          </button>
-          <div className="toolbar-actions" id="toolbar-settings">
-          <select
-            className="era"
-            value={opts.era ?? DEFAULT_ERA}
-            aria-label="Compare against"
-            title="Which hit songs the notes compare your form against"
-            onChange={(e) => setOpts((o) => ({ ...o, era: e.target.value as Era }))}
-          >
-            {(Object.keys(ERA_NAME) as Era[]).map((era) => (
-              <option key={era} value={era}>
-                {ERA_NAME[era]}
-              </option>
-            ))}
-          </select>
-          <select
-            className="sound"
-            value={sound}
-            aria-label="Playback sound"
-            title="Band: sampled piano, bass and drums. Click: simple chords and a click on every beat."
-            onChange={(e) => setSound(e.target.value as Sound)}
-          >
-            <option value="band">Band</option>
-            <option value="synth">Click</option>
-          </select>
-          {/* Both views named, the current one marked: a single button that names the other view reads as where you are. */}
-          <div className="view-switch" role="group" aria-label="View">
-            {(["table", "chart"] as const).map((v) => (
-              <button key={v} aria-pressed={view === v} onClick={() => setView(v)}>
-                {v === "table" ? "Table" : "Chart"}
+          <div className="toolbar-tools" id="toolbar-tools">
+            <label className="tempo" title={`Tempo: ${beatNote.name} notes per minute`}>
+              <span className="tempo-note" aria-hidden>
+                {beatNote.symbol}
+              </span>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={20}
+                max={400}
+                value={opts.bpm}
+                aria-label={`Tempo in ${beatNote.name} notes per minute`}
+                onChange={(e) => setOption({ bpm: clampBpm(e.target.value) })}
+              />
+              <span className="tempo-unit" aria-hidden>
+                bpm
+              </span>
+            </label>
+            <input
+              className="meter"
+              list="common-meters"
+              value={meterText}
+              placeholder="4/4"
+              aria-label="Time signature"
+              aria-invalid={meterError !== null}
+              title="Time signature: pick one or type any, like 7/8 or 2+2+3/8"
+              spellCheck={false}
+              autoComplete="off"
+              onChange={(e) => onMeterText(e.target.value)}
+              onFocus={(e) => e.target.select()}
+              onBlur={() => !meterError && setMeterText(formatMeter(opts.meter))}
+            />
+            <datalist id="common-meters">
+              {COMMON_METERS.map((m) => (
+                <option key={m} value={m} />
+              ))}
+            </datalist>
+            <select
+              className="era"
+              value={opts.era ?? DEFAULT_ERA}
+              aria-label="Compare against"
+              title="Which hit songs the notes compare your form against"
+              onChange={(e) => setOpts((o) => ({ ...o, era: e.target.value as Era }))}
+            >
+              {(Object.keys(ERA_NAME) as Era[]).map((era) => (
+                <option key={era} value={era}>
+                  {ERA_NAME[era]}
+                </option>
+              ))}
+            </select>
+            <select
+              className="sound"
+              value={sound}
+              aria-label="Playback sound"
+              title="Band: sampled piano, bass and drums. Click: simple chords and a click on every beat."
+              onChange={(e) => setSound(e.target.value as Sound)}
+            >
+              <option value="band">Band</option>
+              <option value="synth">Click</option>
+            </select>
+            {/* Both views named, the current one marked: a single button that names the other view reads as where you are. */}
+            <div className="view-switch" role="group" aria-label="View">
+              {(["table", "chart"] as const).map((v) => (
+                <button key={v} aria-pressed={view === v} onClick={() => setView(v)}>
+                  {v === "table" ? "Table" : "Chart"}
+                </button>
+              ))}
+            </div>
+            <button
+              className="shears-toggle"
+              aria-label="Shears"
+              onClick={() => setShears(!shears)}
+              aria-pressed={shears}
+              disabled={sections.length === 0}
+              title="Shears: drag across a section to cut it at a barline, or across its shape to remove it"
+            >
+              <lattice-icon name="shears" />
+              <span className="shears-label">Shears</span>
+            </button>
+            <button
+              className="type-toggle"
+              onClick={() => setTyping(!typing)}
+              aria-pressed={typing}
+              aria-controls="notation"
+              title="Type the form as text, like Vs8 Ch8"
+            >
+              Text
+            </button>
+            {view === "table" && pieces.pieces.length > 0 && (
+              <button className="toolbar-tidy" onClick={tidy}>
+                Tidy up
               </button>
-            ))}
+            )}
           </div>
-          <button
-            className="shears-toggle"
-            aria-label="Shears"
-            onClick={() => setShears(!shears)}
-            aria-pressed={shears}
-            disabled={sections.length === 0}
-            title="Shears: drag across a section to cut it at a barline, or across its shape to remove it"
-          >
-            <lattice-icon name="shears" />
-            <span className="shears-label">Shears</span>
-          </button>
-          <button
-            className="type-toggle"
-            onClick={() => setTyping(!typing)}
-            aria-pressed={typing}
-            aria-controls="notation"
-            title="Type the form as text, like Vs8 Ch8"
-          >
-            Text
+          <button className="tools-toggle" aria-expanded={toolsOpen} aria-controls="toolbar-tools" onClick={() => setToolsOpen((v) => !v)}>
+            Tools
           </button>
           <button className="undo" onClick={undo} disabled={undoStack.length === 0} title="Undo (Cmd/Ctrl+Z)" aria-label="Undo">
             <span className="undo-icon" aria-hidden>
@@ -438,12 +449,6 @@ export function App() {
             <span className="undo-label">Undo</span>
           </button>
           <Menu onPreset={loadPreset} onOpen={setPanel} />
-          {view === "table" && pieces.pieces.length > 0 && (
-            <button className="toolbar-tidy" onClick={tidy}>
-              Tidy up
-            </button>
-          )}
-          </div>
         </div>
         {typing && (
           <input

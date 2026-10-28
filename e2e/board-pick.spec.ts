@@ -45,10 +45,10 @@ test.describe("board: a picked section's actions", () => {
     await expect(page.locator(".section-actions")).toBeHidden();
   });
 
-  test("Play here starts from the section's first bar", async ({ page }) => {
+  test("Play starts from the section's first bar", async ({ page }) => {
     await open(page, { form: "Vs8 Ch8" });
     const actions = await pick(page, 1);
-    await actions.getByRole("button", { name: "Play here" }).click();
+    await actions.getByRole("button", { name: "Play", exact: true }).click();
     await expect(page.locator("button.play")).toHaveAttribute("aria-pressed", "true");
     // Bar 9 onward: the elapsed time starts at the chorus, not at 0:00.
     await expect(page.locator(".duration")).toContainText(/0:(19|2\d) \//);
