@@ -100,11 +100,11 @@ export async function open(page: Page, o: Open = {}) {
   }
 }
 
-/** A toolbar control, opening the phone toolbar's Settings first when it is folded away there. */
+/** A toolbar control, opening the phone toolbar's Tools first when it is folded away there. */
 export async function toolbarButton(page: Page, name: string) {
   const button = page.getByRole("button", { name, exact: true });
-  const settings = page.getByRole("button", { name: "Settings", exact: true });
-  if (!(await button.isVisible()) && (await settings.isVisible())) await settings.click();
+  const tools = page.getByRole("button", { name: "Tools", exact: true });
+  if (!(await button.isVisible()) && (await tools.isVisible())) await tools.click();
   return button;
 }
 
@@ -124,10 +124,15 @@ export async function expectSong(page: Page, form: string) {
   await expect.poll(() => song(page)).toBe(form);
 }
 
-/** Section `i` on the board: its outline (for its box) and its label. */
-export function boardSection(page: Page, i: number): { outline: Locator; label: Locator; hit: Locator } {
+/** Section `i` on the board: its outline (for its box), its label (the button you Tab to) and the label's text. */
+export function boardSection(page: Page, i: number): { outline: Locator; label: Locator; hit: Locator; text: Locator } {
   const marks = page.locator(".overlay .section-marks").nth(i);
-  return { outline: marks.locator(".section-outline"), label: page.locator(`text#section-${i}`), hit: marks.locator(".label-hit") };
+  return {
+    outline: marks.locator(".section-outline"),
+    label: page.locator(`#section-${i}`),
+    hit: marks.locator(".label-hit"),
+    text: marks.locator(".section-label"),
+  };
 }
 
 /** The middle of section `i` on the board, in page pixels. */

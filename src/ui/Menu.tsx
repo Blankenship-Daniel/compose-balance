@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { PRESETS } from "../core/presets.ts";
 
 interface Props {
@@ -10,6 +10,15 @@ interface Props {
 export function Menu({ onPreset, onOpen }: Props) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
+  const list = useRef<HTMLDivElement>(null);
+
+  // A dropdown keeps to the screen: whatever doesn't fit below the button scrolls inside it. (On
+  // phones and short screens it is a sheet from the bottom, sized by the stylesheet.)
+  useLayoutEffect(() => {
+    const el = list.current;
+    if (!open || !el || getComputedStyle(el).position !== "absolute") return;
+    el.style.maxHeight = `${window.innerHeight - el.getBoundingClientRect().top - 8}px`;
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -42,7 +51,7 @@ export function Menu({ onPreset, onOpen }: Props) {
         ⋯
       </button>
       {open && (
-        <div className="menu-list">
+        <div className="menu-list" ref={list}>
           <p className="menu-heading">Start from an example</p>
           {PRESETS.map((p) => (
             <button key={p.name} onClick={choose(() => onPreset(p.name))}>

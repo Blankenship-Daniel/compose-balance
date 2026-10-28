@@ -25,6 +25,9 @@ export default defineConfig({
     // Under the stylesheet's 640px phone breakpoint, but the board still over its own 520px one.
     { name: "between", use: { ...devices["Desktop Chrome"], viewport: { width: 600, height: 900 } }, testMatch: /responsive|visual|shears|layout/ },
     { name: "phone", use: { ...devices["Pixel 7"] }, testMatch: /responsive|phone|visual|shears|layout/ },
+    // Over the phone breakpoint, under the width the whole toolbar fits on one line, by touch: a
+    // tablet, or a phone on its side.
+    { name: "tablet", use: { ...devices["iPad Mini"], defaultBrowserType: "chromium" }, testMatch: /responsive|visual|layout/ },
     { name: "dark", use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 }, colorScheme: "dark" }, testMatch: /visual/ },
   ],
 });

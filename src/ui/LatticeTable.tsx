@@ -119,7 +119,8 @@ export function LatticeTable(props: Props) {
   const shelfRef = useRef<HTMLDetailsElement>(null);
   const pinsRef = useRef<Pin[]>([]);
   // A bar being dragged in from the tray, and where the pointer is.
-  const [adding, setAdding] = useState<{ role: Role; x: number; y: number } | null>(null);
+  // `from` is where it was pressed: let go near there, off the board, it was a tap.
+  const [adding, setAdding] = useState<{ role: Role; x: number; y: number; from: { x: number; y: number } } | null>(null);
   // The section picked to act on (by tap, click or its label): its piece and colour, so it stays
   // picked while the board moves, turns or glues that piece. The tray shows its actions. `at` is
   // where it was picked, in the board's pixels, to tell apart two sections of one type glued into
@@ -443,6 +444,7 @@ export function LatticeTable(props: Props) {
     const up = (e: PointerEvent) => {
       const at = onBoard(e);
       if (at) apply(dropBar(layoutRef.current, adding.role, at, width));
+      else if (Math.hypot(e.clientX - adding.from.x, e.clientY - adding.from.y) < 6) addSection(adding.role);
       setAdding(null);
     };
     window.addEventListener("pointermove", move);
@@ -468,6 +470,10 @@ export function LatticeTable(props: Props) {
     } else if (e.key === "Enter") {
       e.preventDefault();
       props.onPlayFrom(starts[s]!);
+    } else if (e.key === " ") {
+      e.preventDefault();
+      const sec = order[s];
+      if (sec) setPicked({ pieceId: sec.pieceId, tone: sec.parts[0]!.tone, at: centroid(partPolygon(sec.parts[0]!)) });
     }
   }
 
@@ -565,13 +571,28 @@ export function LatticeTable(props: Props) {
     el?.dispatchEvent(new KeyboardEvent("keydown", { key, shiftKey, bubbles: true, composed: true, cancelable: true }));
   };
 
-  /** A new section of `role` laid out under everything, for adding from the keyboard. */
+  /** Nothing picked, and the piece the tap focused lets go of the keyboard and its ring. */
+  const letGoOfPick = () => {
+    setPicked(null);
+    (boardRef.current?.shadowRoot?.activeElement as HTMLElement | SVGElement | null)?.blur();
+  };
+
+  /**
+   * A new section of `role` laid out under everything, for adding from the keyboard or a tap. It is
+   * picked, so the tray shows what was added and its actions, and scrolled into view.
+   */
   function addSection(role: Role) {
-    const r = Math.ceil(bottomOf(layout) / ROW) + 1;
-    const piece = pieceOf(newPieceId(), sectionParts(role, 4, { q: 0, r: layout.pieces.length ? r : 0 }));
-    const roles = { ...layout.roles };
+    const now = layoutRef.current;
+    const r = Math.ceil(bottomOf(now) / ROW) + 1;
+    const piece = pieceOf(newPieceId(), sectionParts(role, 4, { q: 0, r: now.pieces.length ? r : 0 }));
+    const roles = { ...now.roles };
     if (TONE[role] === SHARED) roles[piece.id] = role;
-    apply({ pieces: [...layout.pieces, piece], roles });
+    apply({ pieces: [...now.pieces, piece], roles });
+    setPicked({ pieceId: piece.id, tone: piece.parts[0]!.tone, at: centroid(partPolygon(piece.parts[0]!)) });
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    requestAnimationFrame(() =>
+      document.getElementById(`section-${songOf(layoutRef.current).order.length - 1}`)?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" }),
+    );
   }
 
   return (
@@ -601,8 +622,9 @@ export function LatticeTable(props: Props) {
               (hit?.closest(".piece") as SVGElement | null)?.focus({ preventScroll: true });
             });
             // The piece under the finger is picked (once the board has settled it), or nothing,
-            // tapping empty sky. A mouse has the keyboard for that, and keeps the tray of shapes.
-            const touch = e.pointerType !== "mouse";
+            // tapping empty sky. A mouse on a wide screen has the keyboard for that, and keeps the
+            // tray of shapes; under the stylesheet's phone width the tray is the way to the actions.
+            const touch = e.pointerType !== "mouse" || !matchMedia("(min-width: 641px)").matches;
             setTimeout(() => {
               const r = boardRef.current?.getBoundingClientRect();
               if (!r) return;
@@ -718,21 +740,22 @@ export function LatticeTable(props: Props) {
                   ].join(" ")}
                   d={sidesPath(outlineOfSection(sec))}
                 />
-                {/* A finger-sized target round the label: tap it to pick the section. */}
+                {/* A finger-sized target round the label: tap it, or Tab to it, to pick the section. */}
                 <rect
+                  id={`section-${s}`}
                   className="label-hit"
                   {...labelHits[s]}
+                  tabIndex={0}
+                  role="button"
+                  aria-label={`Section ${s + 1} of ${sections.length}: ${NAME[song.role]}, ${song.bars} bars. Space shows its actions, plus and minus change its length, Delete removes it, Enter plays from it.`}
                   onClick={() => setPicked({ pieceId: sec.pieceId, tone: sec.parts[0]!.tone, at: centroid(partPolygon(sec.parts[0]!)) })}
+                  onKeyDown={(e) => onSectionKey(e, s)}
                 />
                 <text
-                  id={`section-${s}`}
                   className={`section-label ${severity ? `flag-${severity}` : ""}`}
                   x={sec.box.left / EDGE}
                   y={sec.box.top / EDGE - 0.22}
-                  tabIndex={0}
-                  role="button"
-                  aria-label={`Section ${s + 1} of ${sections.length}: ${NAME[song.role]}, ${song.bars} bars. Plus and minus change its length, Delete removes it, Enter plays from it.`}
-                  onKeyDown={(e) => onSectionKey(e, s)}
+                  aria-hidden
                 >
                   <tspan className="order-number">{s + 1}</tspan>
                   <tspan dx="0.18">
@@ -832,6 +855,7 @@ export function LatticeTable(props: Props) {
           // The picked section's actions, where the thumb is: the board's keys (R, G, Shift+G)
           // and the label's (+, −, Delete, Enter) for a finger.
           <SectionActions
+            key={pickedIndex}
             name={`${NAME[pickedSec.role]}, ${pickedBars} ${pickedBars === 1 ? "bar" : "bars"}`}
             bars={pickedBars}
             onTurn={() => boardKey("r")}
@@ -843,9 +867,9 @@ export function LatticeTable(props: Props) {
             onPlay={() => starts[pickedIndex] !== undefined && props.onPlayFrom(starts[pickedIndex]!)}
             onRemove={() => {
               apply(withBars(layout, pickedIndex, 0, width));
-              setPicked(null);
+              letGoOfPick();
             }}
-            onClose={() => setPicked(null)}
+            onClose={letGoOfPick}
           />
         ) : (
         <>
@@ -856,11 +880,11 @@ export function LatticeTable(props: Props) {
           <button
             className="tray-block"
             aria-label={`Add a bar of ${NAME[role].toLowerCase()}`}
-            title={`${NAME[role]}: drag onto the sky. Each shape is one bar; drop it against a ${NAME[role].toLowerCase()} to add to it.`}
+            title={`${NAME[role]}: tap to add a section, or drag onto the sky. Each shape is one bar; drop it against a ${NAME[role].toLowerCase()} to add to it.`}
             onPointerDown={(e) => {
               if (e.button !== 0) return;
               e.preventDefault();
-              setAdding({ role, x: e.clientX, y: e.clientY });
+              setAdding({ role, x: e.clientX, y: e.clientY, from: { x: e.clientX, y: e.clientY } });
             }}
             onClick={(e) => {
               // A keyboard press adds a 4-bar section of this type under the rest.
@@ -920,36 +944,55 @@ function SectionActions(props: {
   onRemove(): void;
   onClose(): void;
 }) {
+  // On a phone the actions are two rows: the name, ⋯ and Done, then the ones used most. ⋯ swaps
+  // that row for the rest. A wide tray shows them all.
+  const [more, setMore] = useState(false);
+  const el = useRef<HTMLDivElement>(null);
+  // The button pressed is hidden by the swap: the keyboard goes to the first of the other row.
+  const swap = (to: boolean) => {
+    setMore(to);
+    requestAnimationFrame(() => el.current?.querySelector<HTMLButtonElement>(to ? ".section-actions-rest button" : ".section-actions-more")?.focus());
+  };
   return (
-    <div className="section-actions" role="toolbar" aria-label={`${props.name}: actions`}>
+    <div className={`section-actions ${more ? "is-more" : ""}`} ref={el} role="toolbar" aria-label={`${props.name}: actions`}>
       <span className="section-actions-name">{props.name}</span>
-      <button onClick={props.onShorter} disabled={props.bars < 2} aria-label="One bar shorter" title="One bar shorter (−)">
-        −
+      <button className="section-actions-more" onClick={() => swap(!more)} aria-label="More actions" aria-expanded={more}>
+        ⋯
       </button>
-      <button onClick={props.onLonger} aria-label="One bar longer" title="One bar longer (+)">
-        +
-      </button>
-      <button onClick={props.onTurn} title="Turn (R)">
-        Turn
-      </button>
-      <button onClick={props.onGlue} title="Glue to what it touches (G)">
-        Glue
-      </button>
-      <button onClick={props.onBreak} title="Break apart (Shift+G)">
-        Break
-      </button>
-      <button onClick={props.onPull} disabled={props.bars < 2} title="Take one bar off, beside it (or Alt-drag a bar)">
-        Pull a bar
-      </button>
-      <button onClick={props.onPlay} title="Play from here (Enter)">
-        Play here
-      </button>
-      <button onClick={props.onRemove} className="danger" title="Remove the section (Delete)">
-        Remove
-      </button>
-      <button onClick={props.onClose} className="section-actions-close" aria-label="Done" title="Done (Esc)">
+      <button onClick={props.onClose} className="section-actions-close" title="Done (Esc)">
         Done
       </button>
+      <span className="section-actions-main">
+        <button onClick={props.onShorter} disabled={props.bars < 2} aria-label="One bar shorter" title="One bar shorter (−)">
+          −
+        </button>
+        <button onClick={props.onLonger} aria-label="One bar longer" title="One bar longer (+)">
+          +
+        </button>
+        <button onClick={props.onTurn} title="Turn (R)">
+          Turn
+        </button>
+        <button onClick={props.onPlay} title="Play from here (Enter)">
+          Play
+        </button>
+        <button onClick={props.onRemove} className="danger" title="Remove the section (Delete)">
+          Remove
+        </button>
+      </span>
+      <span className="section-actions-rest">
+        <button onClick={props.onGlue} title="Glue to what it touches (G)">
+          Glue
+        </button>
+        <button onClick={props.onBreak} title="Break apart (Shift+G)">
+          Break
+        </button>
+        <button onClick={props.onPull} disabled={props.bars < 2} title="Take one bar off, beside it (or Alt-drag a bar)">
+          Pull a bar
+        </button>
+        <button className="section-actions-back" onClick={() => swap(false)}>
+          Back
+        </button>
+      </span>
     </div>
   );
 }
