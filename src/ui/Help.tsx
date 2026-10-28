@@ -2,12 +2,13 @@ import { useState } from "react";
 import { CODE, NAME } from "../core/parse.ts";
 import type { Role } from "../core/types.ts";
 import { Mark } from "./marks.tsx";
+import { isWide } from "./wide.ts";
 
 const ROLES = Object.keys(CODE) as Role[];
 
 export function Help({ onClose }: { onClose(): void }) {
   // The keyboard's list starts open where there is likely a keyboard, folded on a phone.
-  const [wide] = useState(() => matchMedia("(min-width: 641px)").matches);
+  const [wide] = useState(isWide);
   return (
     <section className="panel" aria-labelledby="help-title">
       <div className="panel-head">

@@ -23,7 +23,7 @@ test.describe("shears", () => {
     const x = box.x + box.width / 2;
     await stroke(page, await inPad(page, { x, y: box.y - 25 }), { x, y: box.y + box.height + 25 });
     await expectSong(page, "Vs8 Ch3 Br8");
-    await expect(shears).toHaveAttribute("aria-pressed", "false");
+    await expect(page.locator(".shears-toggle")).toHaveAttribute("aria-pressed", "false");
   });
 
   test("a stroke across two sections takes a bar off each", async ({ page }) => {
@@ -62,7 +62,7 @@ test.describe("shears", () => {
     await shears.click();
     await expect(page.locator("shears-pad")).toBeAttached();
     await page.keyboard.press("Escape");
-    await expect(shears).toHaveAttribute("aria-pressed", "false");
+    await expect(page.locator(".shears-toggle")).toHaveAttribute("aria-pressed", "false");
     await expect(page.locator("shears-pad")).toHaveCount(0);
   });
 });

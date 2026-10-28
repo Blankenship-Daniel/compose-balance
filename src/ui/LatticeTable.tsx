@@ -35,6 +35,7 @@ import { CODE, NAME } from "../core/parse.ts";
 import type { Finding, Role, Section, Severity } from "../core/types.ts";
 import { NoteCard } from "./Findings.tsx";
 import { Mark, toPoints } from "./marks.tsx";
+import { isWide } from "./wide.ts";
 
 const COMMON: Role[] = ["intro", "verse", "prechorus", "chorus", "bridge", "outro"];
 const MORE: Role[] = ["postchorus", "solo", "instrumental", "interlude", "transition", "coda"];
@@ -121,6 +122,9 @@ export function LatticeTable(props: Props) {
   // A bar being dragged in from the tray, and where the pointer is.
   // `from` is where it was pressed: let go near there, off the board, it was a tap.
   const [adding, setAdding] = useState<{ role: Role; x: number; y: number; from: { x: number; y: number } } | null>(null);
+  // Picked up: moved off where it was pressed. Until then it may be a tap, or a swipe along the tray
+  // (which the browser takes over, cancelling the press).
+  const lifted = adding !== null && Math.hypot(adding.x - adding.from.x, adding.y - adding.from.y) >= 6;
   // The section picked to act on (by tap, click or its label): its piece and colour, so it stays
   // picked while the board moves, turns or glues that piece. The tray shows its actions. `at` is
   // where it was picked, in the board's pixels, to tell apart two sections of one type glued into
@@ -302,12 +306,12 @@ export function LatticeTable(props: Props) {
   const [aiming, setAiming] = useState(false);
   useEffect(() => {
     const sky = props.sky.current;
-    sky?.classList.toggle("is-aiming", aiming || adding !== null);
+    sky?.classList.toggle("is-aiming", aiming || lifted);
     if (!aiming) return;
     const up = () => setAiming(false);
     window.addEventListener("pointerup", up);
     return () => window.removeEventListener("pointerup", up);
-  }, [aiming, adding, props.sky]);
+  }, [aiming, lifted, props.sky]);
 
   // The verdict's links open the first (worst) pin, or the shelf of other notes.
   const firstSeen = useRef(props.openFirst);
@@ -447,11 +451,14 @@ export function LatticeTable(props: Props) {
       else if (Math.hypot(e.clientX - adding.from.x, e.clientY - adding.from.y) < 6) addSection(adding.role);
       setAdding(null);
     };
+    const cancel = () => setAdding(null);
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", cancel);
     return () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", cancel);
     };
     // Only the role matters here; the pointer is followed through state.
   }, [adding?.role, width]);
@@ -624,7 +631,7 @@ export function LatticeTable(props: Props) {
             // The piece under the finger is picked (once the board has settled it), or nothing,
             // tapping empty sky. A mouse on a wide screen has the keyboard for that, and keeps the
             // tray of shapes; under the stylesheet's phone width the tray is the way to the actions.
-            const touch = e.pointerType !== "mouse" || !matchMedia("(min-width: 641px)").matches;
+            const touch = e.pointerType !== "mouse" || !isWide();
             setTimeout(() => {
               const r = boardRef.current?.getBoundingClientRect();
               if (!r) return;
@@ -907,7 +914,7 @@ export function LatticeTable(props: Props) {
         </>
         )}
       </div>
-      {adding && (
+      {adding && lifted && (
         <div className="adding" style={{ left: adding.x, top: adding.y }} aria-hidden>
           <Mark role={adding.role} box={L * 1.8} />
         </div>
