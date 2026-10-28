@@ -13,12 +13,13 @@ import type { Era, Options, Section } from "../core/types.ts";
 import { Chart } from "./Chart.tsx";
 import { LatticeTable } from "./LatticeTable.tsx";
 import { flow, type Layout, rightOf, sync } from "../core/lattice.ts";
-import { Verdict } from "./Verdict.tsx";
+import { Verdict, VerdictLine } from "./Verdict.tsx";
 import { Exchange } from "./Exchange.tsx";
 import { Findings } from "./Findings.tsx";
 import { Help } from "./Help.tsx";
 import { Menu } from "./Menu.tsx";
 import { SongSearch } from "./SongSearch.tsx";
+import { StepButton, TapTempo } from "./Tempo.tsx";
 import { isWide } from "./wide.ts";
 import { type Hit, hitSections, restoreChords, songOf } from "../core/songs.ts";
 import { carryChords } from "../core/chords.ts";
@@ -94,6 +95,34 @@ export function App() {
   const [openShelf, setOpenShelf] = useState(0);
   // Phones: the toolbar's tools row, shown on demand.
   const [toolsOpen, setToolsOpen] = useState(false);
+  // During playback the bar being played stays in view: once it nears the stuck toolbar or the
+  // tray and transport at the bottom, the page scrolls it back into the room between them.
+  useEffect(() => {
+    if (playBar < 0) return;
+    const bar = document.querySelector(".bar-lit, .bar.is-playing");
+    if (!bar) return;
+    const r = bar.getBoundingClientRect();
+    const top = document.querySelector(".toolbar")?.getBoundingClientRect().bottom ?? 0;
+    const floor = Math.min(
+      innerHeight,
+      ...[".tray", ".transport"].map((q) => {
+        const el = document.querySelector(q);
+        return el && getComputedStyle(el).position === "fixed" ? el.getBoundingClientRect().top : innerHeight;
+      }),
+    );
+    if (r.top >= top + 8 && r.bottom <= floor - 8) return;
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollBy({ top: r.top - (top + (floor - top) / 3), behavior: reduce ? "auto" : "smooth" });
+  }, [playBar]);
+  // The masthead scrolled away: a phone's stuck toolbar carries the verdict in short instead.
+  const [mastheadGone, setMastheadGone] = useState(false);
+  useEffect(() => {
+    const head = document.querySelector(".masthead");
+    if (!head) return;
+    const io = new IntersectionObserver(([e]) => setMastheadGone(!e!.isIntersecting));
+    io.observe(head);
+    return () => io.disconnect();
+  }, []);
   // On a phone the tools are a sheet over the page: a tap outside it or Escape closes it.
   useEffect(() => {
     if (!toolsOpen) return;
@@ -296,6 +325,12 @@ export function App() {
     setOpts((o) => ({ ...o, ...patch }));
   }
 
+  /** The tempo one step faster or slower, from what it is now (a held button steps many times). */
+  function stepBpm(by: number) {
+    stop();
+    setOpts((o) => ({ ...o, bpm: clampBpm(o.bpm + by) }));
+  }
+
   function onMeterText(value: string) {
     setMeterText(value);
     const parsed = parseMeter(value);
@@ -315,6 +350,7 @@ export function App() {
   }
 
   const beatNote = tempoNote(opts.meter);
+  const openNotes = () => (view === "table" ? setOpenFirst((n) => n + 1) : document.getElementById("findings")?.scrollIntoView({ behavior: "smooth" }));
   /** A tool that acts on the board or the view: on a phone its sheet closes, so you see what it did. */
   const toolDone = (fn: () => void) => () => {
     fn();
@@ -328,61 +364,89 @@ export function App() {
       <Verdict
         report={report}
         empty={sections.length === 0}
-        onOpenNotes={() => (view === "table" ? setOpenFirst((n) => n + 1) : document.getElementById("findings")?.scrollIntoView({ behavior: "smooth" }))}
+        onOpenNotes={openNotes}
         onOpenShelf={() => (view === "table" ? setOpenShelf((n) => n + 1) : document.getElementById("findings")?.scrollIntoView({ behavior: "smooth" }))}
       />
 
       <div className={`toolbar ${toolsOpen ? "tools-open" : ""}`}>
-        {/* Play, the time, Undo and the menu are always in the row; the tools fold behind a button on phones. */}
+        {/* On a phone the row is the verdict in short, Tools and the menu; Play and the rest are the transport at the bottom. */}
         <div className="toolbar-row">
-          <button
-            className="play"
-            onClick={() => (playing || loadingSound ? stop() : play())}
-            disabled={sections.length === 0}
-            aria-pressed={playing || loadingSound}
-            title={loadingSound ? "Loading the piano, bass and drums (first play only)" : undefined}
-          >
-            <span className="play-icon" aria-hidden>
-              {playing || loadingSound ? "■" : "▶"}
-            </span>
-            {loadingSound ? "Loading…" : playing ? "Stop" : "Play"}
-          </button>
-          {sections.length > 0 && (
-            <span className="duration" aria-label="Song length" title="Song length at this tempo and time signature">
-              {playing ? (
-                <>
-                  {formatSeconds(secondsFor(playBar, opts))}
-                  {/* The total drops out on the narrowest phones, so the row keeps to one line. */}
-                  <span className="duration-total"> / {formatSeconds(report.seconds)}</span>
-                </>
-              ) : (
-                formatSeconds(report.seconds)
-              )}
-            </span>
-          )}
+          {mastheadGone && <VerdictLine report={report} empty={sections.length === 0} onOpenNotes={openNotes} />}
+          {/* The transport: at the bottom of a phone's screen, under the thumb, with the view switch; in the row on a wider one. */}
+          <div className="transport">
+            <button
+              className="play"
+              onClick={() => (playing || loadingSound ? stop() : play())}
+              disabled={sections.length === 0}
+              aria-pressed={playing || loadingSound}
+              title={loadingSound ? "Loading the piano, bass and drums (first play only)" : undefined}
+            >
+              <span className="play-icon" aria-hidden>
+                {playing || loadingSound ? "■" : "▶"}
+              </span>
+              {loadingSound ? "Loading…" : playing ? "Stop" : "Play"}
+            </button>
+            {sections.length > 0 && (
+              <span className="duration" aria-label="Song length" title="Song length at this tempo and time signature">
+                {playing ? (
+                  <>
+                    {formatSeconds(secondsFor(playBar, opts))}
+                    {/* The total drops out on the narrowest phones, so the row keeps to one line. */}
+                    <span className="duration-total"> / {formatSeconds(report.seconds)}</span>
+                  </>
+                ) : (
+                  formatSeconds(report.seconds)
+                )}
+              </span>
+            )}
+            {/* Both views named, the current one marked: a single button that names the other view reads as where you are. */}
+            <div className="view-switch" role="group" aria-label="View">
+              {(["table", "chart"] as const).map((v) => (
+                <button key={v} aria-pressed={view === v} onClick={toolDone(() => setView(v))}>
+                  {v === "table" ? "Table" : "Chart"}
+                </button>
+              ))}
+            </div>
+            <button className="undo" onClick={undo} disabled={undoStack.length === 0} title="Undo (Cmd/Ctrl+Z)" aria-label="Undo">
+              <span className="undo-icon" aria-hidden>
+                ↶
+              </span>
+              <span className="undo-label">Undo</span>
+            </button>
+          </div>
           {sections.some((s) => s.chords) && (
             <span className="chord-source" title="Bars from a loaded hit play its real chords; bars you add play placeholders">
               Song’s chords
             </span>
           )}
           <div className="toolbar-tools" id="toolbar-tools">
-            <label className="tempo" title={`Tempo: ${beatNote.name} notes per minute`}>
-              <span className="tempo-note" aria-hidden>
-                {beatNote.symbol}
-              </span>
-              <input
-                type="number"
-                inputMode="numeric"
-                min={20}
-                max={400}
-                value={opts.bpm}
-                aria-label={`Tempo in ${beatNote.name} notes per minute`}
-                onChange={(e) => setOption({ bpm: clampBpm(e.target.value) })}
-              />
-              <span className="tempo-unit" aria-hidden>
-                bpm
-              </span>
-            </label>
+            {/* On a phone: − and + either side (hold to keep going) and Tap, so the keyboard needn't come up. */}
+            <div className="tempo-group">
+              <StepButton label="Slower" onStep={() => stepBpm(-1)}>
+                −
+              </StepButton>
+              <label className="tempo" title={`Tempo: ${beatNote.name} notes per minute`}>
+                <span className="tempo-note" aria-hidden>
+                  {beatNote.symbol}
+                </span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={20}
+                  max={400}
+                  value={opts.bpm}
+                  aria-label={`Tempo in ${beatNote.name} notes per minute`}
+                  onChange={(e) => setOption({ bpm: clampBpm(e.target.value) })}
+                />
+                <span className="tempo-unit" aria-hidden>
+                  bpm
+                </span>
+              </label>
+              <StepButton label="Faster" onStep={() => stepBpm(1)}>
+                +
+              </StepButton>
+              <TapTempo onTempo={(bpm) => setOption({ bpm: clampBpm(bpm) })} />
+            </div>
             <input
               className="meter"
               list="common-meters"
@@ -425,14 +489,6 @@ export function App() {
               <option value="band">Band</option>
               <option value="synth">Click</option>
             </select>
-            {/* Both views named, the current one marked: a single button that names the other view reads as where you are. */}
-            <div className="view-switch" role="group" aria-label="View">
-              {(["table", "chart"] as const).map((v) => (
-                <button key={v} aria-pressed={view === v} onClick={toolDone(() => setView(v))}>
-                  {v === "table" ? "Table" : "Chart"}
-                </button>
-              ))}
-            </div>
             <button
               className="shears-toggle"
               aria-label="Shears"
@@ -464,12 +520,6 @@ export function App() {
           </div>
           <button className="tools-toggle" aria-expanded={toolsOpen} aria-controls="toolbar-tools" onClick={() => setToolsOpen((v) => !v)}>
             Tools
-          </button>
-          <button className="undo" onClick={undo} disabled={undoStack.length === 0} title="Undo (Cmd/Ctrl+Z)" aria-label="Undo">
-            <span className="undo-icon" aria-hidden>
-              ↶
-            </span>
-            <span className="undo-label">Undo</span>
           </button>
           <Menu onPreset={loadPreset} onOpen={setPanel} />
         </div>

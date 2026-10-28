@@ -1,5 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
+// Its own port, or E2E_PORT when another project's server already holds it.
+const port = Number(process.env.E2E_PORT ?? 5199);
+
 /**
  * End-to-end tests: the app in a real browser, at desktop and phone widths. `npm run e2e`.
  * The server runs on its own port, with Vite's dependency cache rebuilt, so the lattice kit is
@@ -11,13 +14,13 @@ export default defineConfig({
   retries: 0,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
-    baseURL: "http://localhost:5199",
+    baseURL: `http://localhost:${port}`,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
   webServer: {
-    command: "npx vite --port 5199 --strictPort --force",
-    url: "http://localhost:5199",
+    command: `npx vite --port ${port} --strictPort --force`,
+    url: `http://localhost:${port}`,
     reuseExistingServer: false,
   },
   projects: [

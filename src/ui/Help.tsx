@@ -30,7 +30,8 @@ export function Help({ onClose }: { onClose(): void }) {
             </li>
             <li>
               Tap a section (or its label) to pick it. The tray shows its actions: − and + make it a bar shorter or longer,
-              then Turn, Play and Remove; ⋯ shows Glue, Break and Pull a bar. Done brings the shapes back.
+              then Turn, Play and Remove; ⋯ shows Glue to neighbours, Break apart and Pull a bar off. Done, or a swipe
+              down, brings the shapes back.
             </li>
             <li>Drag a section to move it: near a slot it leans in and clicks into place. A change that would leave part of a bar is undone.</li>
             <li>
@@ -38,27 +39,27 @@ export function Help({ onClose }: { onClose(): void }) {
               together. Glued sections of different colours move and turn together.
             </li>
             <li>The song reads the table like a page: rows top to bottom, left to right. Numbers on the labels and a dotted thread show the order. Tidy up lays it all out neatly again, in that order; Undo puts your arrangement back.</li>
-            <li>A hand-off drawn solid red or ochre is where a note applies; tap it to see which. During playback the thread fills in and a dot steps from bar to bar.</li>
+            <li>A hand-off drawn solid red or ochre is where a note applies; tap it, or its pin, to open the note. During playback the thread fills in and a dot steps from bar to bar.</li>
             <li>Pick a short section and a dashed outline shows where its phrase would finish, with the bars it adds; tap it to fill it. A flagged section shows it all the time. Shears take a bar off every section a stroke goes clean through.</li>
             <li>To type the form instead, open Tools and turn on Text. To start from a real song, pick Load a real hit in the ⋯ menu.</li>
           </ul>
           <h3>The chart</h3>
           <ul>
-            <li>Switch to it with Chart in Tools. Build the form with the + buttons under it.</li>
+            <li>Switch to it with Chart, beside Play. Build the form with the buttons under it; on a phone, ⋯ on a section shows its actions.</li>
             <li>Four bars to a line. A short line means the section stops partway through a phrase.</li>
             <li>Tap an empty slot at the end of a line to add bars up to it.</li>
             <li>Tap any bar to play from there. Band plays chords, bass and drums, busier in choruses, with a fill into each new section; pick the instruments, and an optional pad, in ⋯ → Instruments. Each instrument takes a few seconds to load the first time. Click plays plain chords with a click on every beat.</li>
             <li>Drag a section by its shape to move it.</li>
             <li>
               Shears: turn them on, then drag across a section to cut it at the nearest barline, or across its shape
-              to remove it. The − button and the shears button on each section do the same without a drag.
+              to remove it. The − button and the shears button on each section (or Remove, under ⋯ on a phone) do the same without a drag.
             </li>
             <li>
               Pick a time signature or type any, like <kbd>5/4</kbd>, <kbd>7/8</kbd> or <kbd>2+2+3/8</kbd> to set how
               the beats group. The note before the tempo shows what it counts: quarters in 4/4, eighths in 7/8, dotted
               quarters in 6/8 and 12/8.
             </li>
-            <li>The length next to Play follows the tempo and time signature.</li>
+            <li>The length next to Play follows the tempo and time signature. On a phone, − and + beside the tempo step it (hold to keep going), and Tap sets it from your taps.</li>
             <li>The chords are placeholders so you can hear the form, not your song’s harmony. A classic hit loaded from the ⋯ menu plays its real chords instead, and they move with their sections.</li>
           </ul>
           <details className="help-keys" open={wide}>
