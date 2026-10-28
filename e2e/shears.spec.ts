@@ -83,7 +83,13 @@ test("the shears pad covers no toolbar control and adds no sideways scroll", asy
   const pad = (await page.locator("shears-pad").boundingBox())!;
   for (const el of await page.locator(".toolbar button:visible, .toolbar input:visible, .toolbar select:visible").all()) {
     const b = (await el.boundingBox())!;
-    expect(b.y + b.height <= pad.y || b.y >= pad.y + pad.height, `${await el.getAttribute("class")} under the pad`).toBe(true);
+    // Clear of the pad, or (a phone's transport, fixed along the bottom) drawn over it, taking its own taps.
+    const clear = b.y + b.height <= pad.y || b.y >= pad.y + pad.height;
+    const onTop = await el.evaluate((e) => {
+      const r = e.getBoundingClientRect();
+      return e.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2));
+    });
+    expect(clear || onTop, `${await el.getAttribute("class")} under the pad`).toBe(true);
   }
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
 });

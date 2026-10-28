@@ -56,19 +56,25 @@ export function Verdict({
       <lattice-face className="verdict-face" mood={empty ? "asleep" : MOOD[report.verdict]} pulse={pulse} size={56} decorative />
       <div className={`verdict verdict-${report.verdict.replace(" ", "-").toLowerCase()}`} aria-live="polite">
         <span className="verdict-word">{empty ? "Empty" : report.verdict}</span>
-        {!empty && (
-          <a
-            className="verdict-counts"
-            href="#findings"
-            onClick={(e) => {
-              e.preventDefault();
-              onOpenNotes();
-            }}
-          >
-            {text === "Nothing to fix" && <lattice-icon name="done" />}
-            {text}
-          </a>
-        )}
+        {/* Nothing to fix is the verdict's status, not a way anywhere. */}
+        {!empty &&
+          (text === "Nothing to fix" ? (
+            <span className="verdict-status">
+              <lattice-icon name="done" />
+              {text}
+            </span>
+          ) : (
+            <a
+              className="verdict-counts"
+              href="#findings"
+              onClick={(e) => {
+                e.preventDefault();
+                onOpenNotes();
+              }}
+            >
+              {text}
+            </a>
+          ))}
         {!empty && notes > 0 && (
           <a
             className="verdict-counts"
@@ -91,5 +97,26 @@ export function Verdict({
         )}
       </div>
     </header>
+  );
+}
+
+/**
+ * The verdict in short, for a phone's stuck toolbar once the masthead has scrolled away: the
+ * word and its counts on one line, a link to the notes as in the masthead.
+ */
+export function VerdictLine({ report, empty, onOpenNotes }: { report: Report; empty: boolean; onOpenNotes(): void }) {
+  if (empty) return null;
+  const text = counts(report);
+  return (
+    <span className={`verdict-line verdict-${report.verdict.replace(" ", "-").toLowerCase()}`}>
+      <span className="verdict-line-word">{report.verdict}</span>
+      {text === "Nothing to fix" ? (
+        <span className="verdict-line-counts">{text}</span>
+      ) : (
+        <button className="verdict-line-counts" onClick={onOpenNotes}>
+          {text}
+        </button>
+      )}
+    </span>
   );
 }

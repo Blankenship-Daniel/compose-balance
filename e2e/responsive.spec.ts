@@ -51,9 +51,9 @@ test.describe("layout at every width", () => {
     await page.mouse.click(200, 300);
     await expect(page.locator(".toolbar-tools")).toBeHidden();
     await page.getByRole("button", { name: "Tools", exact: true }).click();
-    await page.getByRole("button", { name: "Chart", exact: true }).click();
+    await page.getByRole("button", { name: "Text", exact: true }).click();
     await expect(page.locator(".toolbar-tools")).toBeHidden();
-    await expect(page.locator(".chart, #findings").first()).toBeVisible();
+    await expect(page.locator("#notation")).toBeVisible();
   });
 
   test("a phone on its side keeps the phone's layout", async ({ page }) => {
@@ -122,17 +122,17 @@ test.describe("phone actions", () => {
     test.skip(!narrow(page), "phone-width tray only");
     await open(page, { form: "In4 Vs8 Ch8 Out4" });
     await boardSection(page, 3).label.click();
-    const tray = (await page.locator(".tray").boundingBox())!;
     const inTray = async (name: string) => {
+      const tray = (await page.locator(".tray").boundingBox())!;
       const b = (await page.locator(".section-actions").getByRole("button", { name, exact: true }).boundingBox())!;
       expect(b.x >= tray.x && b.x + b.width <= tray.x + tray.width && b.y >= tray.y && b.y + b.height <= tray.y + tray.height, name).toBe(true);
       expect(b.height, name).toBeGreaterThanOrEqual(44);
     };
     for (const name of ["Done", "One bar shorter", "One bar longer", "Turn", "Play", "Remove", "More actions"]) await inTray(name);
     await page.getByRole("button", { name: "More actions" }).click();
-    for (const name of ["Glue", "Break", "Pull a bar", "Back"]) await inTray(name);
+    for (const name of ["Glue to neighbours", "Break apart", "Pull a bar off", "Back to Outro, 4 bars"]) await inTray(name);
     await expect(page.locator(".section-actions").getByRole("button", { name: "Turn", exact: true })).toBeHidden();
-    await expect(page.locator(".section-actions").getByRole("button", { name: "Glue", exact: true })).toBeFocused();
+    await expect(page.locator(".section-actions").getByRole("button", { name: "Glue to neighbours", exact: true })).toBeFocused();
   });
 
   test("at 320px the actions keep to two rows, and the tray is over the pins", async ({ page }) => {
