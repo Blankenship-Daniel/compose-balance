@@ -117,18 +117,20 @@ kbd {
 
 /*
  * Phone first: the rules outside a media query are the phone's. Wider screens add to them under
- * `(min-width: 641px)`, beside the rule they change. Target sizes follow the pointer, not the
- * width: a finger (`pointer: coarse`) gets 44px targets at any width, in "Fingers" at the end.
+ * `(min-width: 641px) and (min-height: 501px)`, beside the rule they change: a phone on its side is
+ * wide but short, and keeps the phone's layout, so the board isn't pushed off its screen. Target
+ * sizes follow the pointer, not the width: a finger (`pointer: coarse`) gets 44px targets at any
+ * width, in "Fingers" at the end. src/ui/wide.ts holds the same query for the scripts.
  */
 
-/* A phone's page ends just under the tray, clear of the home bar. */
+/* A phone's page ends just under the tray, clear of the home bar; on its side, clear of the notch. */
 .app {
   max-width: 1240px;
   margin: 0 auto;
-  padding: 20px 16px calc(16px + env(safe-area-inset-bottom));
+  padding: 20px max(16px, env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
 }
 
-@media (min-width: 641px) {
+@media (min-width: 641px) and (min-height: 501px) {
   .app {
     padding-top: 32px;
     padding-bottom: 56px;
@@ -155,7 +157,7 @@ kbd {
   padding-bottom: 10px;
 }
 
-@media (min-width: 641px) {
+@media (min-width: 641px) and (min-height: 501px) {
   .masthead {
     flex-wrap: wrap;
     align-items: flex-end;
@@ -203,7 +205,7 @@ h1 {
   font-size: 0.9rem;
 }
 
-@media (min-width: 641px) {
+@media (min-width: 641px) and (min-height: 501px) {
   .verdict {
     gap: 14px;
   }
@@ -241,9 +243,10 @@ h1 {
   border-bottom: 1px solid var(--staff);
 }
 
-/* Phones: Play, the time, Tools, Undo and the menu in one row; the tools open under it, wrapped
-   so every one is in view, the comparison last, on a line of its own so its name reads whole. Open,
-   they are rows a stuck toolbar would hold over half the board: it scrolls away with the page then. */
+/* Phones: Play, the time, Tools, Undo and the menu in one row, stuck at the top. The tools open as
+   a sheet from the bottom, over a dimmed page, like the menu: in the thumb's reach, and the board
+   stays where it was under them. Every tool is in view, the comparison last, on a line of its own
+   so its name reads whole. */
 .toolbar-row {
   display: flex;
   flex-wrap: wrap;
@@ -253,20 +256,34 @@ h1 {
 
 .toolbar-tools {
   display: none;
-  order: 1;
-  flex-basis: 100%;
+  position: fixed;
+  left: max(8px, env(safe-area-inset-left));
+  right: max(8px, env(safe-area-inset-right));
+  bottom: calc(8px + env(safe-area-inset-bottom));
+  z-index: 20;
+  max-height: calc(100dvh - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 6px;
-  min-width: 0;
+  padding: 12px;
+  background: var(--sheet);
+  border: 1px solid var(--staff);
+  border-radius: 6px;
+  box-shadow:
+    0 10px 28px color-mix(in srgb, var(--ink) 16%, transparent),
+    0 0 0 100vmax color-mix(in srgb, var(--shade) 28%, transparent);
 }
 
 .toolbar.tools-open .toolbar-tools {
   display: flex;
 }
 
-.toolbar.tools-open {
-  position: relative;
+/* The sheet's way out, last, under the thumb: a phone's only. */
+.tools-done {
+  order: 2;
+  margin-left: auto;
 }
 
 .toolbar-tools > * {
@@ -287,10 +304,7 @@ h1 {
 
 /* Wider: everything in the row, the tools between the time and Undo. Where they don't fit on
    one line (a tablet, a phone on its side), they wrap within their own group. */
-@media (min-width: 641px) {
-  .toolbar.tools-open {
-    position: sticky;
-  }
+@media (min-width: 641px) and (min-height: 501px) {
   .toolbar-row {
     flex-wrap: nowrap;
     gap: 8px;
@@ -298,10 +312,17 @@ h1 {
   .toolbar-tools,
   .toolbar.tools-open .toolbar-tools {
     display: flex;
-    order: 0;
+    position: static;
+    z-index: auto;
     flex: 1 1 0;
+    max-height: none;
+    overflow: visible;
     flex-wrap: wrap;
     gap: 8px;
+    padding: 0;
+    background: none;
+    border: none;
+    box-shadow: none;
   }
   /* The setting and view tools keep to the right of the tempo and time signature. */
   .toolbar-tools .era {
@@ -310,6 +331,7 @@ h1 {
     margin-left: auto;
   }
   .tools-toggle,
+  .tools-done,
   .toolbar-tidy {
     display: none;
   }
@@ -372,7 +394,7 @@ h1 {
   padding: 9px 10px;
 }
 
-@media (min-width: 641px) {
+@media (min-width: 641px) and (min-height: 501px) {
   .play {
     gap: 8px;
     min-width: 96px;
@@ -442,7 +464,7 @@ h1 {
   padding: 6px 4px;
 }
 
-@media (min-width: 641px) {
+@media (min-width: 641px) and (min-height: 501px) {
   .tempo {
     min-height: 0;
     padding-right: 8px;
@@ -496,7 +518,7 @@ h1 {
   }
 }
 
-@media (min-width: 641px) {
+@media (min-width: 641px) and (min-height: 501px) {
   .duration {
     font-size: 1.2rem;
     padding: 0 4px;
@@ -533,9 +555,9 @@ h1 {
    dropdown from the stuck toolbar would run off the screen, where scrolling can't reach it. */
 .menu-list {
   position: fixed;
-  left: 8px;
-  right: 8px;
-  bottom: 8px;
+  left: max(8px, env(safe-area-inset-left));
+  right: max(8px, env(safe-area-inset-right));
+  bottom: calc(8px + env(safe-area-inset-bottom));
   z-index: 20;
   max-height: calc(100dvh - 16px);
   overflow-y: auto;
@@ -552,7 +574,7 @@ h1 {
 }
 
 /* A wide but short screen (a phone on its side): the sheet keeps to the right, under the button. */
-@media (min-width: 641px) {
+@media (min-width: 641px) and (min-height: 501px) {
   .menu-list {
     left: auto;
     width: 360px;
@@ -632,7 +654,7 @@ h1 {
   font-size: 0.95rem;
 }
 
-@media (min-width: 641px) {
+@media (min-width: 641px) and (min-height: 501px) {
   .help-columns {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -829,7 +851,7 @@ h1 {
   background: var(--sheet);
 }
 
-@media (min-width: 641px) {
+@media (min-width: 641px) and (min-height: 501px) {
   .chart {
     padding: 12px 20px 16px;
   }
@@ -855,7 +877,7 @@ h1 {
 
 /* A mouse on a wide screen: the tools show on hover, overlaid under the name, so hidden tools
    take no height in the chart. */
-@media (hover: hover) and (min-width: 641px) {
+@media (hover: hover) and (min-width: 641px) and (min-height: 501px) {
   .section .tools {
     position: absolute;
     left: 44px;
@@ -909,7 +931,7 @@ h1 {
   background: var(--staff-faint);
 }
 
-@media (min-width: 641px) {
+@media (min-width: 641px) and (min-height: 501px) {
   .bar {
     height: 28px;
     padding: 3px 6px;
@@ -1208,7 +1230,7 @@ body {
   height: 44px;
 }
 
-@media (min-width: 641px) {
+@media (min-width: 641px) and (min-height: 501px) {
   .verdict-face {
     width: 56px;
     height: 56px;
@@ -1512,7 +1534,8 @@ lattice-icon {
   gap: 8px;
   padding: 5px 10px 5px 6px;
   cursor: grab;
-  touch-action: none;
+  /* A swipe along the tray scrolls it; up, onto the board, it carries the shape. */
+  touch-action: pan-x;
   font-size: 0.88rem;
 }
 
@@ -1877,7 +1900,7 @@ lattice-icon {
   flex: none;
 }
 
-@media (min-width: 641px) {
+@media (min-width: 641px) and (min-height: 501px) {
   .tray {
     flex-wrap: wrap;
     overflow-x: visible;
@@ -2075,7 +2098,7 @@ lattice-icon {
 }
 
 /* Wider: one row, every action, Done last; no ⋯ or Back. */
-@media (min-width: 641px) {
+@media (min-width: 641px) and (min-height: 501px) {
   .tray.is-actions {
     padding: 10px 12px;
   }
@@ -2173,7 +2196,7 @@ lattice-icon {
   white-space: nowrap;
 }
 
-@media (min-width: 641px) {
+@media (min-width: 641px) and (min-height: 501px) {
   .chord-source {
     display: inline;
   }
@@ -2239,7 +2262,7 @@ lattice-icon {
     height: 44px;
   }
   /* Four 40px tools beside the name. */
-  @media (min-width: 641px) {
+  @media (min-width: 641px) and (min-height: 501px) {
     .section {
       grid-template-columns: 172px minmax(0, 1fr);
     }

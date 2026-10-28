@@ -19,6 +19,7 @@ import { Findings } from "./Findings.tsx";
 import { Help } from "./Help.tsx";
 import { Menu } from "./Menu.tsx";
 import { SongSearch } from "./SongSearch.tsx";
+import { isWide } from "./wide.ts";
 import { type Hit, hitSections, restoreChords, songOf } from "../core/songs.ts";
 import { carryChords } from "../core/chords.ts";
 
@@ -93,6 +94,20 @@ export function App() {
   const [openShelf, setOpenShelf] = useState(0);
   // Phones: the toolbar's tools row, shown on demand.
   const [toolsOpen, setToolsOpen] = useState(false);
+  // On a phone the tools are a sheet over the page: a tap outside it or Escape closes it.
+  useEffect(() => {
+    if (!toolsOpen) return;
+    const close = (e: Event) => {
+      if (isWide()) return;
+      if (e instanceof KeyboardEvent ? e.key === "Escape" : !(e.target as Element).closest?.(".toolbar-tools, .tools-toggle")) setToolsOpen(false);
+    };
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("pointerdown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [toolsOpen]);
   const [shears, setShears] = useState(false);
   // The chart is the main editor; text entry is opt-in and remembered per browser.
   const [typing, setTypingState] = useState(() => readPref("typing") === "1");
@@ -300,6 +315,11 @@ export function App() {
   }
 
   const beatNote = tempoNote(opts.meter);
+  /** A tool that acts on the board or the view: on a phone its sheet closes, so you see what it did. */
+  const toolDone = (fn: () => void) => () => {
+    fn();
+    if (!isWide()) setToolsOpen(false);
+  };
   const showHint = typing && errors.length === 0 && text.trim() === "";
 
   return (
@@ -408,7 +428,7 @@ export function App() {
             {/* Both views named, the current one marked: a single button that names the other view reads as where you are. */}
             <div className="view-switch" role="group" aria-label="View">
               {(["table", "chart"] as const).map((v) => (
-                <button key={v} aria-pressed={view === v} onClick={() => setView(v)}>
+                <button key={v} aria-pressed={view === v} onClick={toolDone(() => setView(v))}>
                   {v === "table" ? "Table" : "Chart"}
                 </button>
               ))}
@@ -416,7 +436,7 @@ export function App() {
             <button
               className="shears-toggle"
               aria-label="Shears"
-              onClick={() => setShears(!shears)}
+              onClick={toolDone(() => setShears(!shears))}
               aria-pressed={shears}
               disabled={sections.length === 0}
               title="Shears: drag across a section to cut it at a barline, or across its shape to remove it"
@@ -426,7 +446,7 @@ export function App() {
             </button>
             <button
               className="type-toggle"
-              onClick={() => setTyping(!typing)}
+              onClick={toolDone(() => setTyping(!typing))}
               aria-pressed={typing}
               aria-controls="notation"
               title="Type the form as text, like Vs8 Ch8"
@@ -434,10 +454,13 @@ export function App() {
               Text
             </button>
             {view === "table" && pieces.pieces.length > 0 && (
-              <button className="toolbar-tidy" onClick={tidy}>
+              <button className="toolbar-tidy" onClick={toolDone(tidy)}>
                 Tidy up
               </button>
             )}
+            <button className="tools-done" onClick={() => setToolsOpen(false)}>
+              Done
+            </button>
           </div>
           <button className="tools-toggle" aria-expanded={toolsOpen} aria-controls="toolbar-tools" onClick={() => setToolsOpen((v) => !v)}>
             Tools

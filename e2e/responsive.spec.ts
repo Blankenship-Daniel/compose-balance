@@ -29,7 +29,7 @@ test.describe("layout at every width", () => {
     await expect(era).toBeHidden();
   });
 
-  test("the toolbar keeps to one row; open, every tool is in view and the toolbar scrolls away", async ({ page }) => {
+  test("the toolbar keeps to one row; the tools open as a sheet, every one in view, the toolbar still stuck", async ({ page }) => {
     test.skip(!narrow(page), "phone-width toolbar only");
     await open(page, { form: "In4 Vs8 Pre4 Ch8 Vs8 Pre4 Ch8 Br8 Ch8 Ch8 Out4" });
     const rows = () =>
@@ -45,7 +45,22 @@ test.describe("layout at every width", () => {
     expect(await rows()).toBe(1);
     await page.getByRole("button", { name: "Tools", exact: true }).click();
     for (const el of await page.locator(".toolbar-tools > :visible").all()) await expect(el).toBeInViewport({ ratio: 1 });
-    expect(await page.locator(".toolbar").evaluate((el) => getComputedStyle(el).position)).not.toBe("sticky");
+    expect(await page.locator(".toolbar").evaluate((el) => getComputedStyle(el).position)).toBe("sticky");
+    expect(await rows()).toBeGreaterThan(1);
+    // A tap outside the sheet closes it; so does a tool that acts on the board.
+    await page.mouse.click(200, 300);
+    await expect(page.locator(".toolbar-tools")).toBeHidden();
+    await page.getByRole("button", { name: "Tools", exact: true }).click();
+    await page.getByRole("button", { name: "Chart", exact: true }).click();
+    await expect(page.locator(".toolbar-tools")).toBeHidden();
+    await expect(page.locator(".chart, #findings").first()).toBeVisible();
+  });
+
+  test("a phone on its side keeps the phone's layout", async ({ page }) => {
+    await page.setViewportSize({ width: 800, height: 370 });
+    await open(page, { form: "In4 Vs8 Ch8 Out4" });
+    await expect(page.getByRole("button", { name: "Tools", exact: true })).toBeVisible();
+    await expect(page.getByLabel("Compare against")).toBeHidden();
   });
 
   test("every item in the menu can be reached", async ({ page }) => {
@@ -141,6 +156,19 @@ test.describe("phone actions", () => {
     const at = await sectionCentre(page, 1);
     await page.mouse.click(at.x, at.y);
     await expect(page.locator(".section-actions")).toBeVisible();
+  });
+
+  test("a swipe along the tray scrolls it, and adds nothing", async ({ page, isMobile }) => {
+    test.skip(!isMobile, "touch only");
+    await open(page, { form: "Vs8 Ch8" });
+    const shape = page.locator(".tray-block").first();
+    expect(await shape.evaluate((el) => getComputedStyle(el).touchAction)).toBe("pan-x");
+    // The browser takes a sideways swipe over and cancels the press: nothing is carried or added.
+    const b = (await shape.boundingBox())!;
+    await shape.dispatchEvent("pointerdown", { pointerType: "touch", button: 0, clientX: b.x + 10, clientY: b.y + 10, isPrimary: true });
+    await page.evaluate(() => window.dispatchEvent(new PointerEvent("pointercancel", { pointerType: "touch" })));
+    await expect(page.locator(".adding")).toHaveCount(0);
+    await expectSong(page, "Vs8 Ch8");
   });
 
   test("tapping a tray shape adds a section and picks it", async ({ page }) => {
