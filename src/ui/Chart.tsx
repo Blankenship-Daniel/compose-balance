@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ShearsPadElement, StrokePoint } from "@harmonics/lattice-ui";
 import { insertAt, move, pruneAt } from "../core/fixes.ts";
 import { CODE, DEFAULT_BARS, NAME } from "../core/parse.ts";
@@ -51,6 +51,16 @@ export function Chart({ sections, highlight, findings, playBar, onChange, onPlay
   const pad = useRef<ShearsPadElement>(null);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [showMore, setShowMore] = useState(false);
+  // On a phone each section's tools are one button, which opens them in a sheet at the bottom, as
+  // the table's tray does for a picked section.
+  const [actionsFor, setActionsFor] = useState<number | null>(null);
+  const picked = actionsFor !== null ? sections[actionsFor] : undefined;
+  useEffect(() => {
+    if (actionsFor === null) return;
+    const key = (e: KeyboardEvent) => e.key === "Escape" && setActionsFor(null);
+    document.addEventListener("keydown", key);
+    return () => document.removeEventListener("keydown", key);
+  }, [actionsFor]);
 
   const worst = new Map<number, Severity>();
   for (const f of findings)
@@ -128,6 +138,9 @@ export function Chart({ sections, highlight, findings, playBar, onChange, onPlay
                   <lattice-icon name="shears" />
                 </button>
               </span>
+              <button className="section-menu" onClick={() => setActionsFor(i)} aria-label={`Actions for ${NAME[s.role]}, section ${i + 1}`} aria-expanded={actionsFor === i}>
+                ⋯
+              </button>
             </div>
             <div className="systems">
               {lines.map((line, li) => {
@@ -183,6 +196,35 @@ export function Chart({ sections, highlight, findings, playBar, onChange, onPlay
           />
         )}
       </div>
+      {picked && actionsFor !== null && (
+        <div className="chart-actions" role="toolbar" aria-label={`${NAME[picked.role]}, ${picked.bars} bars: actions`}>
+          <span className="chart-actions-name">
+            {NAME[picked.role]}, {picked.bars} {picked.bars === 1 ? "bar" : "bars"}
+          </span>
+          <button className="chart-actions-close" onClick={() => setActionsFor(null)}>
+            Done
+          </button>
+          <span className="chart-actions-row">
+            <button onClick={() => setAt(actionsFor, { bars: Math.max(1, picked.bars - 1) })} disabled={picked.bars < 2} aria-label="One bar shorter">
+              −
+            </button>
+            <button onClick={() => setAt(actionsFor, { bars: Math.min(64, picked.bars + 1) })} aria-label="One bar longer">
+              +
+            </button>
+            <button onClick={() => onChange(insertAt(sections, actionsFor + 1, { ...picked }))}>Duplicate</button>
+            <button onClick={() => onPlayFrom(sections.slice(0, actionsFor).reduce((n, x) => n + x.bars, 0))}>Play</button>
+            <button
+              className="danger"
+              onClick={() => {
+                onChange(pruneAt(sections, actionsFor, 0));
+                setActionsFor(null);
+              }}
+            >
+              Remove
+            </button>
+          </span>
+        </div>
+      )}
       <div className="add">
         {[...COMMON, ...(showMore ? MORE : [])].map((role) => (
           <button

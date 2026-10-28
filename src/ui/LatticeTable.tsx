@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { HexSky } from "@harmonics/lattice-ui";
 import type { LatticeBoard } from "@harmonics/lattice-ui/board";
 import { BLOCK_OF, centroid, type Pt, threadPath } from "../core/blocks.ts";
@@ -98,6 +98,22 @@ const PIN_HEX = [0, 1, 2, 3, 4, 5]
   })
   .join(" ");
 
+/** The board's width in pixels, for a table `px` wide and blocks `L` pixels to an edge. */
+const boardWidth = (px: number, L: number) => Math.max(8 * L, px - GUTTER * L - PAD);
+
+/**
+ * A phone's block size: the largest from 20 to 26px an edge at which the song, laid out afresh,
+ * takes no more rows than at 20px.
+ */
+function fitEdge(sections: Section[], px: number): number {
+  const rows = (L: number) => bottomOf(flow(sections, (boardWidth(px, L) * EDGE) / L));
+  const least = rows(20);
+  for (let L = 26; L > 20; L -= 0.5) if (rows(L) <= least) return L;
+  return 20;
+}
+
+/** A short tap felt under the finger, where the phone has it (Android): a section picked or a bar dropped. */
+const buzz = () => navigator.vibrate?.(8);
 const inEdges = (p: Pt): Pt => ({ x: p.x / EDGE, y: p.y / EDGE });
 const sidesPath = (sides: [Pt, Pt][]) =>
   sides.map(([a, b]) => `M${(a.x / EDGE).toFixed(3)},${(a.y / EDGE).toFixed(3)}L${(b.x / EDGE).toFixed(3)},${(b.y / EDGE).toFixed(3)}`).join("");
@@ -140,12 +156,16 @@ export function LatticeTable(props: Props) {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  // Pixels per block edge: big enough to grab, small enough for a song to fit a laptop screen.
+  // Pixels per block edge: big enough to grab, small enough for a song to fit a laptop screen. On a
+  // phone, as big as the song allows in as many rows as the smallest would take, so its rows reach
+  // across the screen instead of stopping short of it. Worked out again only when the width or the
+  // number of sections changes: a bar added doesn't resize every block.
   const phone = px < 520;
-  const L = phone ? 20 : 32;
+  const fit = useMemo(() => (phone ? fitEdge(sections, px) : 32), [phone, px, sections.length]);
+  const L = fit;
   const scale = L / EDGE;
   const gutter = GUTTER * L;
-  const boardW = Math.max(8 * L, px - gutter - PAD);
+  const boardW = boardWidth(px, L);
   // The board's width in the kit's pixels at scale 1: what layouts are made for.
   const width = boardW / scale;
   const widthRef = useRef(width);
@@ -339,6 +359,21 @@ export function LatticeTable(props: Props) {
     document.addEventListener("keydown", key);
     return () => document.removeEventListener("keydown", key);
   }, [picked]);
+  // Wider, an open note is a panel at the right, just under the stuck toolbar, wherever that is.
+  const [noteTop, setNoteTop] = useState(96);
+  useLayoutEffect(() => {
+    if (open) setNoteTop(Math.max(0, document.querySelector(".toolbar")?.getBoundingClientRect().bottom ?? 84) + 12);
+  }, [open]);
+  // An open note is a sheet over the bottom of a phone's screen: its pin, and the section it is
+  // about, scroll up into the room above it.
+  useEffect(() => {
+    if (!open || isWide()) return;
+    const pin = wrap.current?.querySelector<HTMLElement>(".pin.is-open");
+    const top = pin?.getBoundingClientRect().top;
+    if (top === undefined || (top > innerHeight * 0.15 && top < innerHeight * 0.4)) return;
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollBy({ top: top - innerHeight * 0.25, behavior: reduce ? "auto" : "smooth" });
+  }, [open]);
   // An open note closes on Escape or on a click anywhere outside it and its pin.
   useEffect(() => {
     if (!open) return;
@@ -384,11 +419,6 @@ export function LatticeTable(props: Props) {
 
   /** A point on the board (block edges) in pixels from the table's top left. */
   const toPx = (p: Pt) => ({ left: gutter + p.x * L, top: TOP + p.y * L });
-  const notePlace = (pin: Pin) => {
-    const at = toPx(pin.place ?? pin.at);
-    const cardW = Math.min(340, px - 16);
-    return { left: Math.max(8, Math.min(at.left - 24, px - cardW - 8)), top: at.top + 18, width: cardW };
-  };
   /**
    * The finger-sized target round a section's label, in block edges. It ends above the section's
    * top, clear of its pieces (the board draws them lifted a little), so a press on a piece always
@@ -447,7 +477,11 @@ export function LatticeTable(props: Props) {
     const move = (e: PointerEvent) => setAdding((a) => a && { ...a, x: e.clientX, y: e.clientY });
     const up = (e: PointerEvent) => {
       const at = onBoard(e);
-      if (at) apply(dropBar(layoutRef.current, adding.role, at, width));
+      if (at) {
+        const next = dropBar(layoutRef.current, adding.role, at, width);
+        apply(next);
+        if (next) buzz();
+      }
       else if (Math.hypot(e.clientX - adding.from.x, e.clientY - adding.from.y) < 6) addSection(adding.role);
       setAdding(null);
     };
@@ -623,11 +657,14 @@ export function LatticeTable(props: Props) {
           onPointerUp={(e) => {
             // The board focuses a piece only by Tab; a piece you click or drag takes the keyboard
             // too, so G, R, the arrows and Delete act on the piece you last touched.
+            // A finger has no keyboard to give it, and the focus ring is a box round the piece, not
+            // its shape: a touch picks the section instead, drawn round its own outline.
             const { clientX: x, clientY: y } = e;
-            requestAnimationFrame(() => {
-              const hit = boardRef.current?.shadowRoot?.elementsFromPoint(x, y).find((el) => el.closest(".piece"));
-              (hit?.closest(".piece") as SVGElement | null)?.focus({ preventScroll: true });
-            });
+            if (e.pointerType === "mouse" || e.pointerType === "pen")
+              requestAnimationFrame(() => {
+                const hit = boardRef.current?.shadowRoot?.elementsFromPoint(x, y).find((el) => el.closest(".piece"));
+                (hit?.closest(".piece") as SVGElement | null)?.focus({ preventScroll: true });
+              });
             // The piece under the finger is picked (once the board has settled it), or nothing,
             // tapping empty sky. A mouse on a wide screen has the keyboard for that, and keeps the
             // tray of shapes; under the stylesheet's phone width the tray is the way to the actions.
@@ -637,7 +674,10 @@ export function LatticeTable(props: Props) {
               if (!r) return;
               const at = { x: (x - r.left) / scaleRef.current, y: (y - r.top) / scaleRef.current };
               const s = songOf(layoutRef.current).order[sectionIndexAt(layoutRef.current, at)];
-              if (s && touch) setPicked({ pieceId: s.pieceId, tone: s.parts[0]!.tone, at });
+              if (s && touch) {
+                setPicked({ pieceId: s.pieceId, tone: s.parts[0]!.tone, at });
+                buzz();
+              }
               else if (!s) setPicked(null);
             }, 80);
           }}
@@ -817,7 +857,7 @@ export function LatticeTable(props: Props) {
               );
             })}
             {openPin && (
-              <div className={`pin-note sev-${openPin.severity}`} role="dialog" aria-label={openPin.findings[0]!.title} style={notePlace(openPin)}>
+              <div className={`pin-note sev-${openPin.severity}`} role="dialog" aria-label={openPin.findings[0]!.title} style={{ "--note-top": `${noteTop}px` } as React.CSSProperties}>
                 {openPin.findings.map((f, k) => (
                   <article key={`${f.rule}-${k}`} className="pin-finding">
                     <NoteCard
@@ -951,19 +991,48 @@ function SectionActions(props: {
   onRemove(): void;
   onClose(): void;
 }) {
-  // On a phone the actions are two rows: the name, ⋯ and Done, then the ones used most. ⋯ swaps
-  // that row for the rest. A wide tray shows them all.
+  // On a phone the actions are two rows: the name, ⋯ and Done, then the ones used most, Remove set
+  // apart at the far end. ⋯ shows the rest instead, each with what it does, under a header whose
+  // arrow comes back. A wide tray shows them all in one row.
   const [more, setMore] = useState(false);
   const el = useRef<HTMLDivElement>(null);
-  // The button pressed is hidden by the swap: the keyboard goes to the first of the other row.
+  // The button pressed is hidden by the swap: the keyboard goes to the first of the other view.
   const swap = (to: boolean) => {
     setMore(to);
     requestAnimationFrame(() => el.current?.querySelector<HTMLButtonElement>(to ? ".section-actions-rest button" : ".section-actions-more")?.focus());
   };
+  // Swiped down, as a sheet is, it lets go of the section.
+  const closeRef = useRef(props.onClose);
+  closeRef.current = props.onClose;
+  useEffect(() => {
+    const root = el.current;
+    if (!root) return;
+    let from: number | null = null;
+    const down = (e: PointerEvent) => {
+      from = e.pointerType === "mouse" ? null : e.clientY;
+    };
+    const up = (e: PointerEvent) => {
+      if (from !== null && e.clientY - from > 40) closeRef.current();
+      from = null;
+    };
+    root.addEventListener("pointerdown", down);
+    window.addEventListener("pointerup", up);
+    return () => {
+      root.removeEventListener("pointerdown", down);
+      window.removeEventListener("pointerup", up);
+    };
+  }, []);
   return (
     <div className={`section-actions ${more ? "is-more" : ""}`} ref={el} role="toolbar" aria-label={`${props.name}: actions`}>
-      <span className="section-actions-name">{props.name}</span>
-      <button className="section-actions-more" onClick={() => swap(!more)} aria-label="More actions" aria-expanded={more}>
+      <span className="section-actions-handle" aria-hidden />
+      {more ? (
+        <button className="section-actions-back" onClick={() => swap(false)} aria-label={`Back to ${props.name}`}>
+          <span aria-hidden>←</span> {props.name}
+        </button>
+      ) : (
+        <span className="section-actions-name">{props.name}</span>
+      )}
+      <button className="section-actions-more" onClick={() => swap(true)} aria-label="More actions" aria-expanded={more}>
         ⋯
       </button>
       <button onClick={props.onClose} className="section-actions-close" title="Done (Esc)">
@@ -987,17 +1056,17 @@ function SectionActions(props: {
         </button>
       </span>
       <span className="section-actions-rest">
-        <button onClick={props.onGlue} title="Glue to what it touches (G)">
-          Glue
+        <button onClick={props.onGlue} aria-label="Glue to neighbours" title="Glue to what it touches (G)">
+          <span className="action-name">Glue to neighbours</span>
+          <span className="action-note">The sections it touches move with it.</span>
         </button>
-        <button onClick={props.onBreak} title="Break apart (Shift+G)">
-          Break
+        <button onClick={props.onBreak} aria-label="Break apart" title="Break apart (Shift+G)">
+          <span className="action-name">Break apart</span>
+          <span className="action-note">Glued sections move on their own again.</span>
         </button>
-        <button onClick={props.onPull} disabled={props.bars < 2} title="Take one bar off, beside it (or Alt-drag a bar)">
-          Pull a bar
-        </button>
-        <button className="section-actions-back" onClick={() => swap(false)}>
-          Back
+        <button onClick={props.onPull} disabled={props.bars < 2} aria-label="Pull a bar off" title="Take one bar off, beside it (or Alt-drag a bar)">
+          <span className="action-name">Pull a bar off</span>
+          <span className="action-note">One bar becomes a section of its own beside it.</span>
         </button>
       </span>
     </div>

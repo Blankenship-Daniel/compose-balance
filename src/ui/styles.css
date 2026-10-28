@@ -97,6 +97,29 @@ button:disabled {
   cursor: default;
 }
 
+/* A press shows where it landed, in place of the browser's grey flash: the button sinks a little. */
+button,
+a,
+.tray-block,
+.label-hit {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:active:not(:disabled) {
+  background: color-mix(in srgb, var(--ink) 8%, var(--sheet));
+  transform: translateY(1px);
+}
+
+.play:active:not(:disabled) {
+  background: color-mix(in srgb, var(--ink) 85%, var(--sheet));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button:active:not(:disabled) {
+    transform: none;
+  }
+}
+
 input,
 select {
   background: var(--sheet);
@@ -123,11 +146,17 @@ kbd {
  * width, in "Fingers" at the end. src/ui/wide.ts holds the same query for the scripts.
  */
 
-/* A phone's page ends just under the tray, clear of the home bar; on its side, clear of the notch. */
+/* The transport's height on a phone: a 44px row and its padding. The tray sits on it. */
+.app {
+  --transport-h: 60px;
+}
+
+/* A phone's page ends where the tray and transport begin, so its last row scrolls clear of them;
+   on its side, clear of the notch. */
 .app {
   max-width: 1240px;
   margin: 0 auto;
-  padding: 20px max(16px, env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  padding: 20px max(16px, env(safe-area-inset-right)) calc(var(--transport-h) + 72px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
 }
 
 @media (min-width: 641px) and (min-height: 501px) {
@@ -200,9 +229,25 @@ h1 {
   color: var(--ink);
 }
 
+/* "Nothing to fix": the same words, plain, since there is nowhere to go. */
+.verdict-status {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.verdict-status lattice-icon {
+  margin-right: 6px;
+}
+
+/* One line on a phone, however long, so the masthead keeps its height as the verdict changes. */
 .verdict-rank {
   color: var(--ink-soft);
   font-size: 0.9rem;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (min-width: 641px) and (min-height: 501px) {
@@ -214,8 +259,12 @@ h1 {
     font-size: 3rem;
   }
   .verdict-counts,
+  .verdict-status,
   .verdict-rank {
     font-size: 1rem;
+  }
+  .verdict-rank {
+    white-space: normal;
   }
 }
 
@@ -411,6 +460,33 @@ h1 {
   font-size: 0.8em;
 }
 
+/* The tempo with its stepper and Tap: one group, kept together when the tools wrap. On a wide
+   screen the field alone; its keyboard is at hand. */
+.tempo-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tempo-step,
+.tap-tempo {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 10px;
+  font-size: 1.1rem;
+}
+
+.tap-tempo {
+  font-size: 1rem;
+}
+
+@media (min-width: 641px) and (min-height: 501px) {
+  .tempo-step,
+  .tap-tempo {
+    display: none;
+  }
+}
+
 /* 44px on a phone whatever points at it, like the rest of the row. */
 .tempo {
   display: inline-flex;
@@ -488,6 +564,95 @@ h1 {
 
 .spacer {
   flex: 1;
+}
+
+/* The transport: on a phone, a bar along the bottom of the screen, in the thumb's reach whatever
+   is scrolled: Play and the time, then the view and Undo. Wider, its buttons sit in the toolbar's
+   row as before, the view and Undo after the tools. */
+.transport {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--transport-h);
+  padding: 8px max(12px, env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  background: var(--paper);
+  border-top: 1px solid var(--staff);
+}
+
+.transport .duration {
+  margin-right: auto;
+}
+
+@media (min-width: 641px) and (min-height: 501px) {
+  .transport {
+    display: contents;
+  }
+  .transport .duration {
+    margin-right: 0;
+  }
+  .transport .view-switch {
+    order: 1;
+  }
+  .transport .undo {
+    order: 2;
+  }
+  .toolbar-row > .menu {
+    order: 3;
+  }
+}
+
+/* The verdict in short, in a phone's stuck toolbar once the masthead has scrolled away. */
+.verdict-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+  white-space: nowrap;
+}
+
+.verdict-line-word {
+  font: 700 1.1rem/1.2 var(--display);
+}
+
+.verdict-line-counts {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+button.verdict-line-counts {
+  border: none;
+  background: none;
+  padding: 0;
+  text-decoration: underline;
+  text-decoration-color: var(--staff);
+  text-underline-offset: 3px;
+}
+
+.verdict-line.verdict-balanced .verdict-line-word {
+  color: var(--green);
+}
+
+.verdict-line.verdict-mostly-balanced .verdict-line-word {
+  color: var(--ochre);
+}
+
+.verdict-line.verdict-unbalanced .verdict-line-word {
+  color: var(--red);
+}
+
+@media (min-width: 641px) and (min-height: 501px) {
+  .verdict-line {
+    display: none;
+  }
 }
 
 /* A readout, not a control: elapsed / total while playing. */
@@ -828,10 +993,78 @@ h1 {
   color: var(--ink-soft);
 }
 
+/* On a phone a section's tools are one ⋯ button, 44px, opening them in a sheet (.chart-actions):
+   four 26px icons in a row are too small for a thumb, and Prune too near Duplicate. */
 .tools {
-  display: flex;
+  display: none;
   gap: 2px;
   margin-left: auto;
+}
+
+.section-menu {
+  margin-left: auto;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  font-size: 1.1rem;
+  border-color: transparent;
+  background: transparent;
+}
+
+.chart-actions {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--transport-h) + env(safe-area-inset-bottom));
+  z-index: 9;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 4px;
+  padding: 8px max(8px, env(safe-area-inset-right)) 8px max(8px, env(safe-area-inset-left));
+  background: var(--sheet);
+  border-top: 1px solid var(--staff);
+  border-radius: 10px 10px 0 0;
+  box-shadow: 0 -2px 10px color-mix(in srgb, var(--shade) 10%, transparent);
+}
+
+.chart-actions-name {
+  flex: 1;
+  min-width: 0;
+  padding-left: 4px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chart-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  flex-basis: 100%;
+}
+
+.chart-actions button {
+  min-width: 44px;
+  min-height: 44px;
+  padding-inline: 8px;
+  font-size: 0.94rem;
+}
+
+.chart-actions .danger {
+  margin-left: auto;
+  color: var(--red);
+}
+
+@media (min-width: 641px) and (min-height: 501px) {
+  .tools {
+    display: flex;
+  }
+  .section-menu,
+  .chart-actions {
+    display: none;
+  }
 }
 
 .tools button {
@@ -1363,9 +1596,11 @@ lattice-icon {
   stroke: var(--red);
 }
 
+/* Picked or pointed to: its own outline, thicker, and lifted a little off the board. */
 .section-outline.is-highlighted {
   stroke: var(--focus);
-  stroke-width: 3px;
+  stroke-width: 4px;
+  filter: drop-shadow(0 0.06px 0.08px color-mix(in srgb, var(--shade) 45%, transparent));
 }
 
 .block.is-playing {
@@ -1510,22 +1745,23 @@ lattice-icon {
    its taps; an open note lifts the pins over it (6), so the note can hang over the tray.
    On a phone it keeps to one row, scrolled sideways, so it covers as little of the board as it can. */
 .tray {
-  position: sticky;
-  bottom: calc(8px + env(safe-area-inset-bottom));
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--transport-h) + env(safe-area-inset-bottom));
   z-index: 5;
-  box-shadow: 0 2px 10px color-mix(in srgb, var(--shade) 14%, transparent);
+  box-shadow: 0 -2px 10px color-mix(in srgb, var(--shade) 10%, transparent);
   display: flex;
   flex-wrap: nowrap;
   overflow-x: auto;
   scrollbar-width: none;
   align-items: center;
   gap: 6px;
-  margin-top: 10px;
-  padding: 10px 12px;
+  padding: 10px max(12px, env(safe-area-inset-right)) 10px max(12px, env(safe-area-inset-left));
   min-height: 58px;
   background: var(--sheet);
-  border: 1px solid var(--staff);
-  border-radius: 6px;
+  border-top: 1px solid var(--staff);
+  border-radius: 10px 10px 0 0;
 }
 
 .tray-block {
@@ -1726,19 +1962,41 @@ lattice-icon {
 }
 
 /* An open note: a card under its pin, edged in the finding's colour. */
+/* An open note: on a phone a sheet over the bottom of the screen, on the transport, so the
+   section it is about stays in view above it (LatticeTable scrolls it there). Wider, a panel at
+   the right, under the toolbar, rather than a card over the board. */
 .pin-note {
-  position: absolute;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--transport-h) + env(safe-area-inset-bottom));
   pointer-events: auto;
   display: grid;
   gap: 14px;
-  padding: 14px 16px 12px;
+  padding: 14px max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left));
   background: var(--sheet);
-  border: 1px solid var(--staff);
   border-top: 4px solid var(--c);
-  border-radius: 4px 4px 8px 8px;
-  box-shadow: 0 10px 28px color-mix(in srgb, var(--shade) 22%, transparent);
-  max-height: 70vh;
+  border-radius: 10px 10px 0 0;
+  box-shadow: 0 -6px 24px color-mix(in srgb, var(--shade) 22%, transparent);
+  max-height: 55dvh;
   overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (min-width: 641px) and (min-height: 501px) {
+  .pin-note {
+    left: auto;
+    right: max(16px, calc((100vw - 1240px) / 2 + 16px));
+    bottom: auto;
+    top: var(--note-top, 96px);
+    width: 340px;
+    max-height: calc(100dvh - var(--note-top, 96px) - 16px);
+    padding: 14px 16px 12px;
+    border: 1px solid var(--staff);
+    border-top: 4px solid var(--c);
+    border-radius: 4px 4px 8px 8px;
+    box-shadow: 0 10px 28px color-mix(in srgb, var(--shade) 22%, transparent);
+  }
 }
 
 .pin-note.sev-problem {
@@ -1756,7 +2014,7 @@ lattice-icon {
 
 .pin-finding h3,
 .shelf-note h3 {
-  margin: 0 28px 0 0;
+  margin: 0 40px 0 0;
   font-size: 0.95rem;
   line-height: 1.35;
 }
@@ -1775,10 +2033,10 @@ lattice-icon {
 
 .pin-close {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 26px;
-  height: 26px;
+  top: 4px;
+  right: 4px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   border-color: transparent;
   background: transparent;
@@ -1902,8 +2160,17 @@ lattice-icon {
 
 @media (min-width: 641px) and (min-height: 501px) {
   .tray {
+    position: sticky;
+    left: auto;
+    right: auto;
+    bottom: 8px;
+    margin-top: 10px;
+    padding: 10px 12px;
     flex-wrap: wrap;
     overflow-x: visible;
+    box-shadow: 0 2px 10px color-mix(in srgb, var(--shade) 14%, transparent);
+    border: 1px solid var(--staff);
+    border-radius: 6px;
   }
   .tray:not(.is-actions)::after {
     content: none;
@@ -2036,18 +2303,19 @@ lattice-icon {
 }
 
 /* A pin's hexagon and a note's close button are small; their tap targets are 44px. */
-.pin-close::before,
 .pin::before {
   content: "";
   position: absolute;
-  inset: -9px;
+  inset: -10px;
 }
 
-/* The picked section's actions, in the tray. On a phone, two rows, every button in view: its name,
-   ⋯ and Done, then the actions used most, which ⋯ swaps for the rest (and Back for them again).
-   Tight enough for a 320px phone; a row too narrow for them wraps rather than hiding one. */
+/* The picked section's actions, in the tray. On a phone, a sheet along the bottom with a grab
+   handle (a swipe down lets go): its name, ⋯ and Done, then the actions used most, Remove apart at
+   the far end. ⋯ shows the rest, each with a line on what it does, under a header whose arrow comes
+   back. Tight enough for a 320px phone; a row too narrow wraps rather than hiding a button. */
 .tray.is-actions {
-  padding: 6px;
+  padding: 4px max(6px, env(safe-area-inset-right)) 6px max(6px, env(safe-area-inset-left));
+  touch-action: none;
 }
 
 .section-actions {
@@ -2056,6 +2324,21 @@ lattice-icon {
   align-items: center;
   gap: 6px 4px;
   width: 100%;
+}
+
+.section-actions-handle {
+  display: flex;
+  justify-content: center;
+  flex-basis: 100%;
+  padding: 2px 0 4px;
+}
+
+.section-actions-handle::before {
+  content: "";
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--staff);
 }
 
 .section-actions-main,
@@ -2067,12 +2350,14 @@ lattice-icon {
 }
 
 .section-actions-rest,
-.section-actions.is-more .section-actions-main {
+.section-actions.is-more .section-actions-main,
+.section-actions.is-more .section-actions-more {
   display: none;
 }
 
 .section-actions.is-more .section-actions-rest {
   display: flex;
+  flex-direction: column;
 }
 
 .section-actions button {
@@ -2083,7 +2368,8 @@ lattice-icon {
   font-size: 0.94rem;
 }
 
-.section-actions-name {
+.section-actions-name,
+.section-actions .section-actions-back {
   flex: 1;
   min-width: 0;
   padding-left: 4px;
@@ -2093,21 +2379,55 @@ lattice-icon {
   white-space: nowrap;
 }
 
+.section-actions .section-actions-back {
+  flex: 1;
+  text-align: left;
+  border-color: transparent;
+  background: none;
+}
+
+/* Remove is apart from the rest, at the row's end: not a slip of the thumb from Play. */
 .section-actions .danger {
+  margin-left: auto;
   color: var(--red);
 }
 
-/* Wider: one row, every action, Done last; no ⋯ or Back. */
+/* The rest, one to a line, each with what it does. */
+.section-actions-rest button {
+  display: grid;
+  gap: 2px;
+  padding-block: 6px;
+  text-align: left;
+}
+
+.action-name {
+  font-weight: 600;
+}
+
+.action-note {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+
+/* Wider: one row, every action, Done last; no handle, ⋯ or notes. */
 @media (min-width: 641px) and (min-height: 501px) {
   .tray.is-actions {
     padding: 10px 12px;
+    touch-action: auto;
   }
   .section-actions {
     gap: 6px;
   }
+  .section-actions-handle,
+  .section-actions-more,
+  .section-actions .section-actions-back,
+  .action-note {
+    display: none;
+  }
   .section-actions-main,
   .section-actions-rest,
-  .section-actions.is-more .section-actions-main {
+  .section-actions.is-more .section-actions-main,
+  .section-actions.is-more .section-actions-rest {
     display: contents;
   }
   .section-actions-name {
@@ -2115,18 +2435,19 @@ lattice-icon {
     margin-right: 6px;
     padding-left: 0;
   }
-  .section-actions-more,
-  .section-actions-back {
-    display: none;
-  }
   .section-actions button {
     min-height: 40px;
     min-width: 40px;
     padding-inline: 10px;
     font-size: 1rem;
   }
+  .section-actions-rest button {
+    display: inline-block;
+    padding-block: 0;
+  }
   .section-actions .danger {
     order: 1;
+    margin-left: 12px;
   }
   .section-actions .section-actions-close {
     order: 2;
