@@ -53,7 +53,7 @@ Codes are short words, never single capitals, so a form can't be misread as chor
 - **Export:** writes the form in the McGill Billboard format, with a header, one line per 4-bar phrase, and barlines.
 - **Import:** reads Billboard files, counting bars from the barlines, and plain SALAMI files, estimating bars from timestamps at the current tempo.
 - **Chords:** imported bar chords, explicit rests, and holds are preserved. Bars without supplied chords use the section type’s placeholder loop. Titles are reported by the parser but are not part of the editable form.
-- **Safety limits:** annotation files are limited to 1 MiB, with bounded repeat expansion, line counts and chord tokens. Invalid or nonchronological timestamps reject the import without replacing the current form. Sections above 64 bars are clipped with an explicit warning.
+- **Safety limits:** annotation files are limited to 1 MiB of UTF-8, 10,000 lines, 512 parsed sections, 32,768 expanded bars and 65,536 expanded chord tokens (at most 256 tokens per parsed bar). The editor then applies the stricter document limits below, including at most 64 tokens and 2,048 characters per chord bar. A parser-successful file can therefore still be rejected by the editor. Invalid/nonfinite or nonchronological timestamps and exceeded budgets reject the import without replacing the current form. Sections above 64 bars are clipped with an explicit warning.
 - **Documents:** the editor supports up to 256 sections and 4096 bars. Shared links preserve actual chord lists (including edited/reordered and imported chords), deliberate-length markers, tempo, additive meter and era in a versioned payload. Older notation/song-ID links remain readable. Changing the hash on an open page loads the new document.
 - **Board edits:** spatial moves preserve semantic metadata. Operations with ambiguous shared-color roles are refused rather than silently changing section roles or duration.
 
@@ -172,13 +172,13 @@ Playwright starts its own Vite server on port **5199** and refuses to reuse an e
 `npm run typecheck` and the build check application code in `src/`, excluding unit tests; they do not typecheck maintenance scripts or E2E tests. Run the relevant tests as well when changing those areas. The build currently warns about the large, lazy-loaded Billboard catalogue chunk; this is a bundle-size warning, not a failed build.
 
 - **Scoring core:** `src/core/` is the scoring engine, pure TypeScript with no DOM, so a CLI could reuse it.
-- **Thresholds:** they live in `rules/phrase.ts` (role weights, severity cutoffs) and `rules/macro.ts` (time limits).
+- **Thresholds:** role weights and severity logic live in `src/core/rules/phrase.ts`; macro checks live in `src/core/rules/macro.ts`. Era-specific empirical cutoffs come from `src/core/corpus/`, accessed through `src/core/corpus.ts`.
 - **Corpus evaluation:** Setting environment variables runs the full empirical validation test suite against external datasets:
   ```bash
   BILLBOARD_DIR=/path/to/McGill-Billboard HARMONIX_DIR=/path/to/harmonixset/dataset npm test
   ```
   Without these variables set, the 4 corpus evaluation tests in `corpus-eval.test.ts` are safely skipped.
-- **Corpus generation:** `node scripts/corpus-stats.ts <dir>` rebuilds `src/core/corpus/billboard.json` and the song list `songs-billboard.json` from a Billboard folder, or `harmonix.json` and `songs-harmonix.json` from the Harmonix Set's `dataset` folder (add `--years <file>` with the output of `python3 scripts/harmonix-years.py <dataset>/metadata.csv <file>` for release years). See [scripts/README.md](scripts/README.md) for detailed workflows. The Harmonix-derived files are MIT-licensed; see [`src/core/corpus/LICENSE-harmonix.txt`](src/core/corpus/LICENSE-harmonix.txt). Check [docs/research.md](docs/research.md#corpus-measurements-srccorecorpusts) for research methodology.
+- **Corpus generation:** `node scripts/corpus-stats.ts <dir>` rebuilds `src/core/corpus/billboard.json` and the song list `songs-billboard.json` from a Billboard folder, or `harmonix.json` and `songs-harmonix.json` from the Harmonix Set's `dataset` folder (add `--years <file>` with the release-year lookup output; see the Python/uv command in the scripts guide). See [scripts/README.md](scripts/README.md) for detailed workflows. The Harmonix-derived files are MIT-licensed; see [`src/core/corpus/LICENSE-harmonix.txt`](src/core/corpus/LICENSE-harmonix.txt). Check [docs/research.md](docs/research.md#corpus-measurements-srccorecorpusts) for research methodology.
 
 ## Credits
 

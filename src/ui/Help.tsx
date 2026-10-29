@@ -60,7 +60,7 @@ export function Help({ onClose }: { onClose(): void }) {
               quarters in 6/8 and 12/8.
             </li>
             <li>The length next to Play follows the tempo and time signature. On a phone, − and + beside the tempo step it (hold to keep going), and Tap sets it from your taps.</li>
-            <li>The chords are placeholders so you can hear the form, not your song’s harmony. A classic hit loaded from the ⋯ menu plays its real chords instead, and they move with their sections.</li>
+            <li>Chords are placeholders unless supplied by a loaded classic hit or an imported Billboard file. Supplied chords, rests and holds stay with the form when you share its link; modern hits without chord annotations use placeholders.</li>
           </ul>
           <details className="help-keys" open={wide}>
             <summary>Keyboard shortcuts</summary>
