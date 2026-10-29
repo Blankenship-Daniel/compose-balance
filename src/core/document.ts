@@ -2,9 +2,13 @@
  * Document serialisation, validation, and deserialisation for compose-balance.
  *
  * Supports two document formats in URLs:
- * 1. Version 1 structured JSON document (`#d=...`): captures complete section objects,
- *    including chords, intentional irregular-length markers, tempo, meter, and era.
- * 2. Legacy notation format (`#f=...`): shorthand SALAMI/Billboard text string.
+ * 1. Version 1 structured JSON (`d={v:1,sections:[...]}`, URL-encoded): captures section
+ *    roles, bars, chords and intentional markers. Emitted only when chords are present;
+ *    it takes precedence over the accompanying display notation (`f`).
+ * 2. Notation-only (`f=...`): quick-entry section codes, bars and intentional markers.
+ *    Still emitted for chord-free forms; this is not a SALAMI annotation-file payload.
+ * Both formats keep tempo (`bpm`), meter/grouping (`m`) and nondefault era (`era`) in
+ * separate hash parameters. Older notation links may also carry a corpus `song` ID.
  *
  * Enforces strict bounds against untrusted inputs:
  * - `MAX_DOCUMENT_CHARS`: 500,000 characters maximum hash size.
