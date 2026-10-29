@@ -100,7 +100,7 @@ export function Help({ onClose }: { onClose(): void }) {
           </p>
           <p>
             The limits are measured from real hits: about 900 modern pop songs (the Harmonix Set) or about 740 Hot 100
-            songs from 1958–1991 (McGill Billboard), picked in the toolbar. Something most hits do gets a note, not a
+            songs from 1958–1991 (McGill Billboard), picked in the verdict line (or in the toolbar on phones). Something most hits do gets a note, not a
             warning; a song only reads as unbalanced when its odd lengths add up to more than 9 in 10 of those hits have.
           </p>
         </div>

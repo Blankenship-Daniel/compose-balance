@@ -12,6 +12,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, posix } from "node:path";
 import type { Drum } from "../src/audio/patterns.ts";
+import { peakDb } from "./audio-level.ts";
 
 type Range = [number, number];
 
@@ -568,17 +569,6 @@ function encode(lib: Library, planned: Planned[], cache: string, out: string): v
     const filter = `${mix};${sum};[m]aformat=channel_layouts=mono,atrim=0:${seconds},afade=t=out:st=${seconds - fade}:d=${fade},volume=${gain.toFixed(2)}dB[o]`;
     execFileSync("ffmpeg", ["-v", "error", "-y", ...inputs, "-filter_complex", filter, "-map", "[o]", "-c:a", "aac", "-b:a", "80k", join(out, `${p.name}.m4a`)]);
   }
-}
-
-function peakDb(sources: { file: string; volume: number }[], seconds: number): number {
-  const inputs = sources.flatMap((s) => ["-i", s.file]);
-  const mix = sources.map((s, i) => `[${i}:a]volume=${s.volume}dB[a${i}]`).join(";");
-  const sum = sources.length > 1 ? `${sources.map((_, i) => `[a${i}]`).join("")}amix=inputs=${sources.length}:normalize=0[m]` : "[a0]anull[m]";
-  const out = execFileSync("ffmpeg", ["-v", "info", "-nostats", ...inputs, "-filter_complex", `${mix};${sum};[m]atrim=0:${seconds},volumedetect[o]`, "-map", "[o]", "-f", "null", "-"], {
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-  }).toString();
-  return Number(/max_volume: (-?[\d.]+) dB/.exec(out)?.[1] ?? 0);
 }
 
 function preset(lib: Library, planned: Planned[]) {

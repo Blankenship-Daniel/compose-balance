@@ -29,7 +29,8 @@ test("text and errors", async ({ page }, info) => {
 test("dark mode has a dark page", async ({ page }, info) => {
   test.skip(info.project.name !== "dark", "dark project only");
   await open(page, { form: SONG });
-  const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  // The sky behind everything (the body is transparent over it): it must turn dark with the page.
+  const bg = await page.evaluate(() => getComputedStyle(document.querySelector("hex-sky")!).backgroundColor);
   const [r, g, b] = bg.match(/\d+/g)!.map(Number);
   expect((r! + g! + b!) / 3, `body background ${bg}`).toBeLessThan(80);
 });
