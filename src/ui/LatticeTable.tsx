@@ -21,6 +21,7 @@ import {
   pullBar,
   pullOneBar,
   ROW,
+  reachOf,
   SHARED,
   sectionIndexAt,
   sectionParts,
@@ -102,14 +103,20 @@ const PIN_HEX = [0, 1, 2, 3, 4, 5]
 const boardWidth = (px: number, L: number) => Math.max(8 * L, px - GUTTER * L - PAD);
 
 /**
- * A phone's block size: the largest from 20 to 26px an edge at which the song, laid out afresh,
- * takes no more rows than at 20px.
+ * A phone's block size, from 28 to 44px an edge: one at which the song's widest section still fits
+ * across the board, and among those from 34px up, the one that lays the song out in fewest rows
+ * (the largest of those), so short sections pair up instead of each leaving most of its row empty.
+ * A phone scrolls down easily and taps coarsely: no smaller than that to save a row.
  */
-function fitEdge(sections: Section[], px: number): number {
+function fitEdge(sections: Section[], reach: number, px: number): number {
+  // The room as measured, not `boardWidth`'s: its floor of 8 blocks would let a board outgrow the table.
+  const fits = (L: number) => Math.max(8 * L, (reach * L) / EDGE) <= px - GUTTER * L - PAD;
   const rows = (L: number) => bottomOf(flow(sections, (boardWidth(px, L) * EDGE) / L));
-  const least = rows(20);
-  for (let L = 26; L > 20; L -= 0.5) if (rows(L) <= least) return L;
-  return 20;
+  let best = 0;
+  for (let L = 44; L >= 34; L -= 0.5) if (fits(L) && (!best || rows(L) < rows(best))) best = L;
+  if (best) return best;
+  for (let L = 33.5; L > 28; L -= 0.5) if (fits(L)) return L;
+  return 28;
 }
 
 /** A short tap felt under the finger, where the phone has it (Android): a section picked or a bar dropped. */
@@ -157,11 +164,11 @@ export function LatticeTable(props: Props) {
     return () => ro.disconnect();
   }, []);
   // Pixels per block edge: big enough to grab, small enough for a song to fit a laptop screen. On a
-  // phone, as big as the song allows in as many rows as the smallest would take, so its rows reach
-  // across the screen instead of stopping short of it. Worked out again only when the width or the
-  // number of sections changes: a bar added doesn't resize every block.
+  // phone, as big as the widest section allows. Worked out again only when the width or the widest
+  // section changes: a bar added elsewhere doesn't resize every block.
   const phone = px < 520;
-  const fit = useMemo(() => (phone ? fitEdge(sections, px) : 32), [phone, px, sections.length]);
+  const reach = Math.max(EDGE, ...sections.map((s) => reachOf(s.role, s.bars)));
+  const fit = useMemo(() => (phone ? fitEdge(sections, reach, px) : 32), [phone, px, reach, sections.length]);
   const L = fit;
   const scale = L / EDGE;
   const gutter = GUTTER * L;
@@ -703,11 +710,28 @@ export function LatticeTable(props: Props) {
           {threads.map((t, s) => {
             if (!t) return null;
             const hit = handoff.get(s);
-            // On a phone the board is narrow and nearly every hand-off wraps to a new row: those
-            // loops are left out unless they carry a note (the order numbers give the order).
-            if (phone && t.wraps && !hit) return null;
             const state = playing > s + 1 ? "is-played" : playing === s + 1 ? "is-now" : "";
             const kind = hit ? hit.severity : state ? "played" : "plain";
+            // On a phone nearly every hand-off wraps to a new row: instead of loops back across the
+            // board, a spine down the left gutter, out of each section's left side and into the
+            // next's, so the song reads top to bottom. A wrap with a note keeps its whole path; one
+            // out of a section further along its row (it would cross its neighbour) breaks as on a
+            // wide screen.
+            const a = order[s]!.box;
+            const b = order[s + 1]!.box;
+            if (phone && t.wraps && !hit && a.left / EDGE < 1) {
+              const ay = (a.top + a.bottom) / 2 / EDGE;
+              const by = (b.top + b.bottom) / 2 / EDGE;
+              // Far enough out that a section at the board's very left edge still gets a visible run in.
+              const x = -GUTTER + 0.1;
+              const r = 0.2;
+              const d = `M${a.left / EDGE - 0.1},${ay} L${x + r},${ay} Q${x},${ay} ${x},${ay + r} L${x},${by - r} Q${x},${by} ${x + r},${by} L${b.left / EDGE - 0.12},${by}`;
+              return (
+                <path key={`thread-${s}`} className={["thread", state].join(" ")} d={d} markerEnd={`url(#thread-arrow-${kind})`}>
+                  <title>{`${NAME[sections[s]!.role]} into ${NAME[sections[s + 1]!.role].toLowerCase()}`}</title>
+                </path>
+              );
+            }
             // A flagged hand-off opens its note when tapped: hover tooltips don't reach a finger.
             const pin = hit && pins.find((p) => Math.hypot(p.at.x - t.mid.x, p.at.y - t.mid.y) < 0.05);
             const label = `${NAME[sections[s]!.role]} into ${NAME[sections[s + 1]!.role].toLowerCase()}`;

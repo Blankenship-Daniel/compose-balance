@@ -492,6 +492,12 @@ export interface BoardSection {
   box: { left: number; top: number; right: number; bottom: number };
 }
 
+/**
+ * How far right a section reaches when `flow` starts a row with it, in pixels at scale 1: laid out
+ * on an odd row, which starts half a cell in, so it holds on either.
+ */
+export const reachOf = (role: Role, bars: number): number => boxOfTris(sectionParts(role, bars, { q: 0, r: 1 }).flatMap(trisOfPart)).right;
+
 const boxOfTris = (tris: Tri[]) => {
   const pts = tris.flatMap((t) => cornersOf(t).map(cornerOf));
   return {
@@ -647,8 +653,10 @@ export function flow(sections: Section[], width: number): Layout {
     const id = newPieceId();
     pieces.push(pieceOf(id, parts));
     if (TONE[s.role] === SHARED) roles[id] = s.role;
-    // The section's lowest row of cells, as laid out (a long one has two phrases to a row).
-    const lowest = Math.max(...parts.map((x) => (x.kind === "cell" ? x.at.r : hexAt(triMid(x.at).x, triMid(x.at).y).r)));
+    // The section's lowest row of cells once its last phrase is finished (a long one has two
+    // phrases to a row), so the next row leaves its ghost room to show.
+    const finished = sectionParts(s.role, Math.ceil(s.bars / PER_ROW) * PER_ROW, { q, r });
+    const lowest = Math.max(...finished.map((x) => (x.kind === "cell" ? x.at.r : hexAt(triMid(x.at).x, triMid(x.at).y).r)));
     rowBottom = Math.max(rowBottom, lowest);
     // The next section starts a cell clear of this one's right edge, on this row.
     q = Math.ceil(box.right / CELL_W - r / 2 + 1e-6) + 1;

@@ -13,14 +13,14 @@ import type { Era, Options, Section } from "../core/types.ts";
 import { Chart } from "./Chart.tsx";
 import { LatticeTable } from "./LatticeTable.tsx";
 import { flow, type Layout, rightOf, sync } from "../core/lattice.ts";
-import { Verdict, VerdictLine } from "./Verdict.tsx";
+import { Verdict, VerdictLine, VerdictRank } from "./Verdict.tsx";
 import { Exchange } from "./Exchange.tsx";
 import { Findings } from "./Findings.tsx";
 import { Help } from "./Help.tsx";
 import { Menu } from "./Menu.tsx";
 import { SongSearch } from "./SongSearch.tsx";
 import { StepButton, TapTempo } from "./Tempo.tsx";
-import { isWide } from "./wide.ts";
+import { isWide, useWide } from "./wide.ts";
 import { type Hit, hitSections, restoreChords, songOf } from "../core/songs.ts";
 import { carryChords } from "../core/chords.ts";
 
@@ -358,12 +358,31 @@ export function App() {
   };
   const showHint = typing && errors.length === 0 && text.trim() === "";
 
+  // Which hits the song is compared against: in the verdict's own sentence when wide, among a phone's tools otherwise.
+  const wide = useWide();
+  const eraPicker = (
+    <select
+      className="era"
+      value={opts.era ?? DEFAULT_ERA}
+      aria-label="Compare against"
+      title="Which hit songs the notes compare your form against"
+      onChange={(e) => setOpts((o) => ({ ...o, era: e.target.value as Era }))}
+    >
+      {(Object.keys(ERA_NAME) as Era[]).map((era) => (
+        <option key={era} value={era}>
+          {/* Mid-sentence in the verdict, so lower case there. */}
+          {wide ? ERA_NAME[era].replace(/^./, (c) => c.toLowerCase()) : ERA_NAME[era]}
+        </option>
+      ))}
+    </select>
+  );
   return (
     <div className="app">
       <hex-sky ref={sky} className="ground" />
       <Verdict
         report={report}
         empty={sections.length === 0}
+        eraPicker={wide ? eraPicker : null}
         onOpenNotes={openNotes}
         onOpenShelf={() => (view === "table" ? setOpenShelf((n) => n + 1) : document.getElementById("findings")?.scrollIntoView({ behavior: "smooth" }))}
       />
@@ -372,6 +391,8 @@ export function App() {
         {/* On a phone the row is the verdict in short, Tools and the menu; Play and the rest are the transport at the bottom. */}
         <div className="toolbar-row">
           {mastheadGone && <VerdictLine report={report} empty={sections.length === 0} onOpenNotes={openNotes} />}
+          {/* A phone's row beside Tools and the menu carries the rank, so the masthead is a line shorter. */}
+          {!wide && !mastheadGone && <VerdictRank report={report} empty={sections.length === 0} />}
           {/* The transport: at the bottom of a phone's screen, under the thumb, with the view switch; in the row on a wider one. */}
           <div className="transport">
             <button
@@ -408,10 +429,7 @@ export function App() {
               ))}
             </div>
             <button className="undo" onClick={undo} disabled={undoStack.length === 0} title="Undo (Cmd/Ctrl+Z)" aria-label="Undo">
-              <span className="undo-icon" aria-hidden>
-                ↶
-              </span>
-              <span className="undo-label">Undo</span>
+              <span aria-hidden>↶</span>
             </button>
           </div>
           {sections.some((s) => s.chords) && (
@@ -447,38 +465,32 @@ export function App() {
               </StepButton>
               <TapTempo onTempo={(bpm) => setOption({ bpm: clampBpm(bpm) })} />
             </div>
-            <input
-              className="meter"
-              list="common-meters"
-              value={meterText}
-              placeholder="4/4"
-              aria-label="Time signature"
-              aria-invalid={meterError !== null}
-              title="Time signature: pick one or type any, like 7/8 or 2+2+3/8"
-              spellCheck={false}
-              autoComplete="off"
-              onChange={(e) => onMeterText(e.target.value)}
-              onFocus={(e) => e.target.select()}
-              onBlur={() => !meterError && setMeterText(formatMeter(opts.meter))}
-            />
+            {/* Named on a phone, where the sheet has no tooltips: "4/4 time", as the tempo reads "100 bpm". */}
+            <label className="meter-field">
+              <input
+                className="meter"
+                list="common-meters"
+                value={meterText}
+                placeholder="4/4"
+                aria-label="Time signature"
+                aria-invalid={meterError !== null}
+                title="Time signature: pick one or type any, like 7/8 or 2+2+3/8"
+                spellCheck={false}
+                autoComplete="off"
+                onChange={(e) => onMeterText(e.target.value)}
+                onFocus={(e) => e.target.select()}
+                onBlur={() => !meterError && setMeterText(formatMeter(opts.meter))}
+              />
+              <span className="meter-unit" aria-hidden>
+                time
+              </span>
+            </label>
             <datalist id="common-meters">
               {COMMON_METERS.map((m) => (
                 <option key={m} value={m} />
               ))}
             </datalist>
-            <select
-              className="era"
-              value={opts.era ?? DEFAULT_ERA}
-              aria-label="Compare against"
-              title="Which hit songs the notes compare your form against"
-              onChange={(e) => setOpts((o) => ({ ...o, era: e.target.value as Era }))}
-            >
-              {(Object.keys(ERA_NAME) as Era[]).map((era) => (
-                <option key={era} value={era}>
-                  {ERA_NAME[era]}
-                </option>
-              ))}
-            </select>
+            {!wide && eraPicker}
             <select
               className="sound"
               value={sound}
