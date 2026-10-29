@@ -93,6 +93,19 @@ test.describe("layout at every width", () => {
     }
   });
 
+  test("a phone's blocks are finger-sized, and the song reaches across the board", async ({ page, isMobile }) => {
+    test.skip(!isMobile || !narrow(page), "phone only");
+    await open(page, { form: "In4 Vs8 Pre4 Ch8 Vs8 Pre4 Ch8 Br8 Ch8 Ch8 Out4" });
+    // A block edge (a triangle's side) is 44 of the kit's pixels at scale 1.
+    await expect.poll(() => page.locator("lattice-board").evaluate((b) => (b as HTMLElement & { scale: number }).scale * 44)).toBeGreaterThanOrEqual(28);
+    const used = await page.evaluate(() => {
+      const t = document.querySelector(".table")!.getBoundingClientRect();
+      const right = Math.max(...[...document.querySelectorAll(".section-outline")].map((o) => o.getBoundingClientRect().right));
+      return (right - t.left) / t.width;
+    });
+    expect(used).toBeGreaterThan(0.75);
+  });
+
   test("every tray shape is reachable", async ({ page }) => {
     await open(page, { form: "Vs8 Ch8" });
     for (const role of ["intro", "verse", "pre-chorus", "chorus", "bridge", "outro"]) {

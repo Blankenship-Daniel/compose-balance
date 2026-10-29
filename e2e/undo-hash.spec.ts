@@ -44,9 +44,13 @@ test.describe("undo and the URL", () => {
 
   test("changing the URL's hash on an open page loads that song", async ({ page }) => {
     await open(page, { form: "Vs8 Ch8" });
-    await page.evaluate(() => (location.hash = "#f=In4%20Br8&bpm=100&m=4%2F4"));
+    await page.evaluate(() => (location.hash = "#f=In4%20Br8&bpm=80&m=3%2F4"));
     await expectSong(page, "In4 Br8");
     await expect(page.locator(".overlay .section-marks")).toHaveCount(2);
+    await expect(boardSection(page, 0).text).toContainText("In4");
+    await expect(boardSection(page, 1).text).toContainText("Br8");
+    await expect(page.getByLabel(/Tempo in/)).toHaveValue("80");
+    await expect(page.getByLabel("Time signature")).toHaveValue("3/4");
   });
 
   test("Undo after a board drag puts the pieces back", async ({ page }) => {

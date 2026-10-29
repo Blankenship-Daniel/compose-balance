@@ -5,7 +5,7 @@ import { type BandChoice, validChoice } from "../audio/instruments.ts";
 import { Instruments } from "./Instruments.tsx";
 import { format, parse } from "../core/parse.ts";
 import { PRESETS } from "../core/presets.ts";
-import { COMMON_METERS, formatMeter, FOUR_FOUR, parseMeter, tempoNote } from "../core/meter.ts";
+import { COMMON_METERS, formatMeter, parseMeter, tempoNote } from "../core/meter.ts";
 import { analyze } from "../core/score.ts";
 import { DEFAULT_ERA, ERA_NAME } from "../core/corpus.ts";
 import { formatSeconds, secondsFor } from "../core/stats.ts";
@@ -13,73 +13,42 @@ import type { Era, Options, Section } from "../core/types.ts";
 import { Chart } from "./Chart.tsx";
 import { LatticeTable } from "./LatticeTable.tsx";
 import { flow, type Layout, rightOf, sync } from "../core/lattice.ts";
-import { Verdict, VerdictLine } from "./Verdict.tsx";
+import { Verdict, VerdictLine, VerdictRank } from "./Verdict.tsx";
 import { Exchange } from "./Exchange.tsx";
 import { Findings } from "./Findings.tsx";
 import { Help } from "./Help.tsx";
 import { Menu } from "./Menu.tsx";
 import { SongSearch } from "./SongSearch.tsx";
 import { StepButton, TapTempo } from "./Tempo.tsx";
-import { isWide } from "./wide.ts";
-import { type Hit, hitSections, restoreChords, songOf } from "../core/songs.ts";
+import { isWide, useWide } from "./wide.ts";
+import { type Hit, hitSections } from "../core/songs.ts";
+import { boardMetadata } from "../core/board-metadata.ts";
+import { validSections, type SharedDocument } from "../core/document.ts";
+import { clampBpm, initialDocument, readPref, writePref, useDocumentLink } from "./document-state.ts";
+import { useEditorKeys } from "./use-editor-keys.ts";
 import { carryChords } from "../core/chords.ts";
 
-/** A tempo from the field or the URL: 20–400 bpm, 100 when it isn't a number. */
-const clampBpm = (value: unknown) => Math.min(400, Math.max(20, Number(value) || 100));
+/** Initial state is read once; later hash navigation is handled by useDocumentLink. */
 
-function readHash(): { notation: string; bpm: number; meter: string; era: Era; song?: string } | null {
-  const params = new URLSearchParams(location.hash.slice(1));
-  const f = params.get("f");
-  if (!f) return null;
-  const era = params.get("era");
-  return {
-    notation: f,
-    bpm: clampBpm(params.get("bpm")),
-    meter: params.get("m") ?? "4/4",
-    era: era && Object.hasOwn(ERA_NAME, era) ? (era as Era) : DEFAULT_ERA,
-    song: params.get("song") ?? undefined,
-  };
-}
 
-const initial = readHash() ?? { notation: PRESETS[0]!.notation, bpm: PRESETS[0]!.bpm, meter: "4/4", era: DEFAULT_ERA };
-const initialMeter = ((m) => (typeof m === "string" ? FOUR_FOUR : m))(parseMeter(initial.meter));
-
-function readPref(key: string): string | null {
-  try {
-    return localStorage.getItem(`compose-balance:${key}`);
-  } catch {
-    return null;
-  }
-}
-
-function writePref(key: string, value: string) {
-  try {
-    localStorage.setItem(`compose-balance:${key}`, value);
-  } catch {
-    // Storage blocked (private window); the preference just won't persist.
-  }
-}
-
-function isTyping(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement && /^(INPUT|SELECT|TEXTAREA)$/.test(target.tagName);
-}
+const initial = initialDocument();
 
 type Panel = "exchange" | "help" | "songs" | "instruments" | null;
 
 export function App() {
-  const [sections, setSections] = useState<Section[]>(() => parse(initial.notation).sections);
-  const [text, setText] = useState(() => format(parse(initial.notation).sections));
+  const [sections, setSections] = useState<Section[]>(() => initial.sections);
+  const [text, setText] = useState(() => format(initial.sections));
   const [errors, setErrors] = useState<string[]>([]);
-  const [opts, setOpts] = useState<Options>({ bpm: initial.bpm, meter: initialMeter, era: initial.era });
+  const [opts, setOpts] = useState<Options>(initial.opts);
   // The meter field keeps what was typed; opts.meter keeps the last valid meter.
-  const [meterText, setMeterText] = useState(() => formatMeter(initialMeter));
+  const [meterText, setMeterText] = useState(() => formatMeter(initial.opts.meter));
   const [meterError, setMeterError] = useState<string | null>(null);
   // Each step's song and table, and the settings it changed with it (a preset's tempo, an
   // import's meter) as they were before, so undo puts those back too.
   const [undoStack, setUndoStack] = useState<{ sections: Section[]; pieces: Layout; settings?: Partial<Options> }[]>([]);
   // The shape table's pieces, and its width in the lattice's pixels at scale 1.
   const [tableWidth, setTableWidth] = useState(1500);
-  const [pieces, setPieces] = useState<Layout>(() => flow(parse(initial.notation).sections, 1500));
+  const [pieces, setPieces] = useState<Layout>(() => flow(initial.sections, 1500));
   // Whether the table is still the app's own layout (true) or has been arranged by hand on the table.
   const [autoLayout, setAutoLayout] = useState(true);
   const [view, setViewState] = useState<"table" | "chart">(() => (readPref("view") === "chart" ? "chart" : "table"));
@@ -166,53 +135,27 @@ export function App() {
     }
   });
 
-  useEffect(() => {
-    const m = encodeURIComponent(formatMeter(opts.meter));
-    // The default era stays out of the URL, so older links and new ones read the same.
-    const era = opts.era && opts.era !== DEFAULT_ERA ? `&era=${opts.era}` : "";
-    // A loaded hit's id, so the link plays its real chords too.
-    const song = songOf(sections);
-    window.history.replaceState(null, "", `#f=${encodeURIComponent(format(sections))}&bpm=${opts.bpm}&m=${m}${era}${song ? `&song=${song}` : ""}`);
-  }, [sections, opts.bpm, opts.meter, opts.era]);
-
-  // A link to a loaded hit: fetch its chords and put them back on the linked form.
-  useEffect(() => {
-    if (!initial.song) return;
-    restoreChords(initial.song, sections).then(
-      (withChords) => withChords && setSections((current) => carryChords(withChords, current)),
-      () => {}, // the song list didn't load: the form still plays, on placeholders
-    );
-    // Once, for the link the page opened with.
-  }, []);
+  const editRevision = useRef(0);
+  const linkError = useDocumentLink(sections, opts, initial, loadDocument, editRevision);
+  const [playbackError, setPlaybackError] = useState<string | null>(null);
+  function loadDocument(document: SharedDocument) {
+    stop();
+    setSections(document.sections);
+    setPieces(flow(document.sections, tableWidth));
+    setText(format(document.sections));
+    applySettings(document.opts);
+    setUndoStack([]);
+    setErrors([]);
+    setAutoLayout(true);
+  }
 
   useEffect(() => () => player.current?.stop(), []);
 
-  // Space plays/stops, Cmd/Ctrl+Z undoes, Escape closes a panel — except while typing in a field.
-  const keys = useRef({ togglePlay: () => {}, undo: () => {}, close: () => {} });
-  keys.current = {
+  useEditorKeys({
     togglePlay: () => (playing || loadingSound ? stop() : play()),
     undo,
-    close: () => {
-      setPanel(null);
-      setShears(false);
-    },
-  };
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") return keys.current.close();
-      if (isTyping(e.target)) return;
-      // A button's own Space presses it: a section's label, too, which is a button drawn in SVG.
-      if (e.key === " " && !(e.target instanceof HTMLButtonElement) && !(e.target instanceof Element && e.target.getAttribute("role") === "button")) {
-        e.preventDefault();
-        keys.current.togglePlay();
-      } else if (e.key === "z" && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
-        e.preventDefault();
-        keys.current.undo();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+    close: () => { setPanel(null); setShears(false); },
+  });
 
   /** The table's pieces for a new song: kept where only lengths changed, laid out afresh otherwise. */
   function piecesFor(next: Section[]): Layout {
@@ -223,13 +166,18 @@ export function App() {
    * Every structural edit goes through here so undo, the text box and the table stay in sync.
    * `settings` are changed in the same undo step (a preset's tempo, an import's meter).
    */
-  function update(edited: Section[], nextPieces?: Layout, settings?: Partial<Options>) {
-    const next = carryChords(sections, edited);
+  function update(edited: Section[], nextPieces?: Layout, settings?: Partial<Options>, replace = false) {
+    if (!validSections(edited)) {
+      setPlaybackError("This edit exceeds the supported document limits (256 sections and 4096 bars).");
+      return;
+    }
+    editRevision.current++;
+    const next = replace ? edited : nextPieces ? boardMetadata(sections, pieces, edited, nextPieces) : carryChords(sections, edited);
     const before = settings && (Object.fromEntries(Object.keys(settings).map((k) => [k, opts[k as keyof Options]])) as Partial<Options>);
     setUndoStack((h) => [...h.slice(-49), { sections, pieces, settings: before }]);
     if (settings) applySettings(settings);
     setSections(next);
-    setPieces(nextPieces ?? piecesFor(next));
+    setPieces(nextPieces ?? (replace ? flow(next, tableWidth) : piecesFor(next)));
     // Pieces handed in come from the table itself: the user has arranged them. An edit made
     // elsewhere that changes which sections there are lays the table out afresh.
     const reshaped = next.length !== sections.length || next.some((x, i) => x.role !== sections[i]!.role);
@@ -242,8 +190,10 @@ export function App() {
   function onText(value: string) {
     setText(value);
     const result = parse(value);
+    if (!validSections(result.sections)) result.errors.push("Use at most 256 sections and 4096 bars.");
     setErrors(result.errors);
     if (result.errors.length === 0 && format(result.sections) !== format(sections)) {
+      editRevision.current++;
       const next = carryChords(sections, result.sections);
       setUndoStack((h) => [...h.slice(-49), { sections, pieces }]);
       setSections(next);
@@ -255,6 +205,7 @@ export function App() {
   function undo() {
     const prev = undoStack[undoStack.length - 1];
     if (!prev) return;
+    editRevision.current++;
     setUndoStack((h) => h.slice(0, -1));
     if (prev.settings) applySettings(prev.settings);
     setSections(prev.sections);
@@ -284,20 +235,24 @@ export function App() {
   function loadPreset(name: string) {
     const p = PRESETS.find((x) => x.name === name);
     if (!p) return;
-    update(parse(p.notation).sections, undefined, { bpm: p.bpm });
+    update(parse(p.notation).sections, undefined, { bpm: p.bpm }, true);
   }
 
   /** A corpus song: its form, chords where known, tempo and time signature, judged against its own era. Undo restores all of it. */
   function loadHit(hit: Hit) {
     const meter = parseMeter(hit.meter);
-    update(hitSections(hit), undefined, { bpm: hit.bpm, era: hit.era, ...(typeof meter !== "string" && { meter }) });
+    update(hitSections(hit), undefined, { bpm: hit.bpm, era: hit.era, ...(typeof meter !== "string" && { meter }) }, true);
     setPanel(null);
   }
 
   function play(fromBar = 0) {
     if (sections.length === 0) return;
     player.current ??= new Player();
-    void player.current.play(sections, opts, setPlayBar, fromBar, { sound, band, onLoading: setLoadingSound });
+    setPlaybackError(null);
+    void player.current.play(sections, opts, setPlayBar, fromBar, { sound, band, onLoading: setLoadingSound }).catch(() => {
+      stop();
+      setPlaybackError("Playback could not start. Check the sound settings and try again.");
+    });
   }
 
   function stop() {
@@ -358,12 +313,31 @@ export function App() {
   };
   const showHint = typing && errors.length === 0 && text.trim() === "";
 
+  // Which hits the song is compared against: in the verdict's own sentence when wide, among a phone's tools otherwise.
+  const wide = useWide();
+  const eraPicker = (
+    <select
+      className="era"
+      value={opts.era ?? DEFAULT_ERA}
+      aria-label="Compare against"
+      title="Which hit songs the notes compare your form against"
+      onChange={(e) => setOpts((o) => ({ ...o, era: e.target.value as Era }))}
+    >
+      {(Object.keys(ERA_NAME) as Era[]).map((era) => (
+        <option key={era} value={era}>
+          {/* Mid-sentence in the verdict, so lower case there. */}
+          {wide ? ERA_NAME[era].replace(/^./, (c) => c.toLowerCase()) : ERA_NAME[era]}
+        </option>
+      ))}
+    </select>
+  );
   return (
     <div className="app">
       <hex-sky ref={sky} className="ground" />
       <Verdict
         report={report}
         empty={sections.length === 0}
+        eraPicker={wide ? eraPicker : null}
         onOpenNotes={openNotes}
         onOpenShelf={() => (view === "table" ? setOpenShelf((n) => n + 1) : document.getElementById("findings")?.scrollIntoView({ behavior: "smooth" }))}
       />
@@ -372,6 +346,8 @@ export function App() {
         {/* On a phone the row is the verdict in short, Tools and the menu; Play and the rest are the transport at the bottom. */}
         <div className="toolbar-row">
           {mastheadGone && <VerdictLine report={report} empty={sections.length === 0} onOpenNotes={openNotes} />}
+          {/* A phone's row beside Tools and the menu carries the rank, so the masthead is a line shorter. */}
+          {!wide && !mastheadGone && <VerdictRank report={report} empty={sections.length === 0} />}
           {/* The transport: at the bottom of a phone's screen, under the thumb, with the view switch; in the row on a wider one. */}
           <div className="transport">
             <button
@@ -408,10 +384,7 @@ export function App() {
               ))}
             </div>
             <button className="undo" onClick={undo} disabled={undoStack.length === 0} title="Undo (Cmd/Ctrl+Z)" aria-label="Undo">
-              <span className="undo-icon" aria-hidden>
-                ↶
-              </span>
-              <span className="undo-label">Undo</span>
+              <span aria-hidden>↶</span>
             </button>
           </div>
           {sections.some((s) => s.chords) && (
@@ -447,38 +420,32 @@ export function App() {
               </StepButton>
               <TapTempo onTempo={(bpm) => setOption({ bpm: clampBpm(bpm) })} />
             </div>
-            <input
-              className="meter"
-              list="common-meters"
-              value={meterText}
-              placeholder="4/4"
-              aria-label="Time signature"
-              aria-invalid={meterError !== null}
-              title="Time signature: pick one or type any, like 7/8 or 2+2+3/8"
-              spellCheck={false}
-              autoComplete="off"
-              onChange={(e) => onMeterText(e.target.value)}
-              onFocus={(e) => e.target.select()}
-              onBlur={() => !meterError && setMeterText(formatMeter(opts.meter))}
-            />
+            {/* Named on a phone, where the sheet has no tooltips: "4/4 time", as the tempo reads "100 bpm". */}
+            <label className="meter-field">
+              <input
+                className="meter"
+                list="common-meters"
+                value={meterText}
+                placeholder="4/4"
+                aria-label="Time signature"
+                aria-invalid={meterError !== null}
+                title="Time signature: pick one or type any, like 7/8 or 2+2+3/8"
+                spellCheck={false}
+                autoComplete="off"
+                onChange={(e) => onMeterText(e.target.value)}
+                onFocus={(e) => e.target.select()}
+                onBlur={() => !meterError && setMeterText(formatMeter(opts.meter))}
+              />
+              <span className="meter-unit" aria-hidden>
+                time
+              </span>
+            </label>
             <datalist id="common-meters">
               {COMMON_METERS.map((m) => (
                 <option key={m} value={m} />
               ))}
             </datalist>
-            <select
-              className="era"
-              value={opts.era ?? DEFAULT_ERA}
-              aria-label="Compare against"
-              title="Which hit songs the notes compare your form against"
-              onChange={(e) => setOpts((o) => ({ ...o, era: e.target.value as Era }))}
-            >
-              {(Object.keys(ERA_NAME) as Era[]).map((era) => (
-                <option key={era} value={era}>
-                  {ERA_NAME[era]}
-                </option>
-              ))}
-            </select>
+            {!wide && eraPicker}
             <select
               className="sound"
               value={sound}
@@ -561,12 +528,13 @@ export function App() {
         )}
       </div>
 
+      {(linkError || initial.error || playbackError) && <p className="errors" role="alert">{playbackError ?? linkError ?? initial.error}</p>}
       {panel === "exchange" && (
         <Exchange
           sections={sections}
           opts={opts}
           onClose={() => setPanel(null)}
-          onImport={(next, meter) => update(next, undefined, meter ? { meter } : undefined)}
+          onImport={(next, meter) => update(next, undefined, meter ? { meter } : undefined, true)}
         />
       )}
       {panel === "help" && <Help onClose={() => setPanel(null)} />}

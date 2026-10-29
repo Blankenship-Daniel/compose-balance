@@ -9,7 +9,7 @@
  */
 import { LOOPS } from "../audio/chords.ts";
 import { DEFAULT_BARS, SALAMI_LABEL } from "./parse.ts";
-import { type Meter, parseMeter } from "./meter.ts";
+import { formatMeter, type Meter, parseMeter } from "./meter.ts";
 import { secondsFor } from "./stats.ts";
 import type { Options, Role, Section } from "./types.ts";
 
@@ -30,8 +30,28 @@ const HARTE: Record<string, string> = {
  */
 const BAR_RUN = /\|(?:(?:[^|,()]|\([^)|]*\))*\|)+(?:\s*x(\d+))?/g;
 
-/** Each bar on an annotation line, repeats written out: its chord tokens, one space apart. */
+/** Shared with file pickers: UTF-8 bytes, not JavaScript character count. */
+export const MAX_ANNOTATION_BYTES = 1024 * 1024;
+const MAX_LINES = 10_000;
+const MAX_SECTIONS = 512;
+const MAX_EXPANDED_BARS = 32_768;
+const MAX_CHORD_TOKENS = 65_536;
+const MAX_TOKENS_PER_BAR = 256;
+
+function validateSize(text: string): void {
+  if (text.length > MAX_ANNOTATION_BYTES || new TextEncoder().encode(text).length > MAX_ANNOTATION_BYTES)
+    throw new Error(`Annotation exceeds ${MAX_ANNOTATION_BYTES} UTF-8 bytes.`);
+}
+
+interface Budget { bars: number; tokens: number }
+
+/** Each bar on an annotation line, repeats written out; rejects oversized expansion. */
 export function lineBars(line: string): string[] {
+  validateSize(line);
+  return readLineBars(line, { bars: 0, tokens: 0 });
+}
+
+function readLineBars(line: string, budget: Budget): string[] {
   const bars: string[] = [];
   for (const m of line.matchAll(BAR_RUN)) {
     const run = m[0]
@@ -40,7 +60,22 @@ export function lineBars(line: string): string[] {
       .slice(1, -1)
       // "(2/4)" marks a bar in another metre; the app plays every bar the same length.
       .map((bar) => bar.replace(/\(\d+\/\d+\)/g, "").trim().replace(/\s+/g, " "));
-    for (let i = 0; i < Number(m[1] ?? 1); i++) bars.push(...run);
+    const repeats = Number(m[1] ?? 1);
+    if (!Number.isSafeInteger(repeats) || repeats < 1 || repeats > MAX_EXPANDED_BARS)
+      throw new Error("Invalid or excessive bar repeat count.");
+    let tokens = 0;
+    for (const bar of run) {
+      const count = bar ? bar.split(" ").length : 0;
+      if (count > MAX_TOKENS_PER_BAR) throw new Error(`A bar exceeds ${MAX_TOKENS_PER_BAR} chord tokens.`);
+      tokens += count;
+    }
+    if (budget.bars + run.length * repeats > MAX_EXPANDED_BARS)
+      throw new Error(`Annotation exceeds ${MAX_EXPANDED_BARS} expanded bars.`);
+    if (budget.tokens + tokens * repeats > MAX_CHORD_TOKENS)
+      throw new Error(`Annotation exceeds ${MAX_CHORD_TOKENS} expanded chord tokens.`);
+    budget.bars += run.length * repeats;
+    budget.tokens += tokens * repeats;
+    for (let i = 0; i < repeats; i++) for (const bar of run) bars.push(bar);
   }
   return bars;
 }
@@ -95,12 +130,12 @@ function seconds(n: number): string {
 
 /** Writes a McGill Billboard-style annotation: one line per 4-bar phrase. */
 export function toBillboard(sections: Section[], opts: Options, title = "Untitled sketch"): string {
-  const out = [`# title: ${title}`, `# artist: compose-balance`, `# metre: ${opts.meter.beats}/${opts.meter.unit}`, `# tonic: C`, ""];
+  const out = [`# title: ${title}`, `# artist: compose-balance`, `# metre: ${formatMeter(opts.meter)}`, `# tonic: C`, ""];
   const labels = letters(sections);
   let bar = 0;
   sections.forEach((s, i) => {
     for (let b = 0; b < s.bars; b += 4) {
-      const chords = Array.from({ length: Math.min(4, s.bars - b) }, (_, k) => s.chords?.[b + k] || HARTE[LOOPS[s.role][(b + k) % 4]!]!);
+      const chords = Array.from({ length: Math.min(4, s.bars - b) }, (_, k) => s.chords?.[b + k] ?? HARTE[LOOPS[s.role][(b + k) % 4]!]!);
       const cells = `| ${chords.join(" | ")} |`;
       const head = b === 0 ? `${labels[i]}, ${SALAMI_LABEL[s.role]}, ` : "";
       out.push(`${seconds(secondsFor(bar + b, opts))}\t${head}${cells}`);
@@ -115,7 +150,7 @@ export interface ImportResult {
   sections: Section[];
   meter?: Meter;
   title?: string;
-  /** Problems a person should know about; the import still succeeds. */
+  /** Warnings, or a validation failure explaining why no sections were imported. */
   notes: string[];
 }
 
@@ -132,6 +167,19 @@ interface Pending {
  * barlines when present; otherwise they are estimated from timestamps at `opts.bpm`.
  */
 export function fromAnnotation(text: string, opts: Options): ImportResult {
+  try {
+    return readAnnotation(text, opts);
+  } catch (error) {
+    return { sections: [], notes: [`Import rejected: ${error instanceof Error ? error.message : String(error)}`] };
+  }
+}
+
+function readAnnotation(text: string, opts: Options): ImportResult {
+  validateSize(text);
+  const lines = text.split(/\r?\n/);
+  if (lines.length > MAX_LINES) throw new Error(`Annotation exceeds ${MAX_LINES} lines.`);
+  const budget: Budget = { bars: 0, tokens: 0 };
+  let previousTime = -Infinity;
   const notes: string[] = [];
   let meter: Meter | undefined;
   let title: string | undefined;
@@ -144,7 +192,7 @@ export function fromAnnotation(text: string, opts: Options): ImportResult {
     current = null;
   };
 
-  for (const raw of text.split(/\r?\n/)) {
+  for (const raw of lines) {
     const line = raw.trim();
     if (!line) continue;
     if (line.startsWith("#")) {
@@ -155,13 +203,17 @@ export function fromAnnotation(text: string, opts: Options): ImportResult {
       } else if (m?.[1] === "title") title = m[2]!.trim();
       continue;
     }
-    const m = /^(-?[\d.eE+-]+)\s+(.*)$/.exec(line);
+    const m = /^(\S+)\s+(.*)$/.exec(line);
     if (!m) {
       notes.push(`Skipped a line without a timestamp: "${line.slice(0, 40)}"`);
       continue;
     }
     const time = Number(m[1]);
-    const bars = lineBars(m[2]!);
+    if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(m[1]!) || !Number.isFinite(time))
+      throw new Error(`Invalid finite timestamp: "${m[1]}".`);
+    if (time < previousTime) throw new Error("Timestamps must be chronological (nondecreasing).");
+    previousTime = time;
+    const bars = readLineBars(m[2]!, budget);
     let role: Role | null | undefined; // undefined = no new section on this line
     let boundary = false;
 
@@ -178,7 +230,8 @@ export function fromAnnotation(text: string, opts: Options): ImportResult {
       } else if (item.startsWith("(") || item.endsWith(")") || IGNORED.has(lower)) {
         // instrument tags and decorative labels
       } else {
-        const r = FUNCTIONS[lower.replace(/_/g, " ")] ?? FUNCTIONS[lower];
+        const normalized = lower.replace(/_/g, " ");
+        const r = Object.hasOwn(FUNCTIONS, normalized) ? FUNCTIONS[normalized] : Object.hasOwn(FUNCTIONS, lower) ? FUNCTIONS[lower] : undefined;
         if (r) {
           role = r;
           boundary = true;
@@ -189,6 +242,7 @@ export function fromAnnotation(text: string, opts: Options): ImportResult {
     if (boundary) {
       close(time);
       current = { role: role ?? null, bars: 0, chords: [], start: time };
+      if (pending.length >= MAX_SECTIONS) throw new Error(`Annotation exceeds ${MAX_SECTIONS} sections.`);
       pending.push(current);
     }
     if (current) {
@@ -200,6 +254,7 @@ export function fromAnnotation(text: string, opts: Options): ImportResult {
   if (unknown.size) notes.push(`Ignored labels this app doesn't model: ${[...unknown].join(", ")}.`);
 
   const barDur = secondsFor(1, { ...opts, meter: meter ?? opts.meter });
+  if (!Number.isFinite(barDur) || barDur <= 0) throw new Error("Tempo and meter must give a finite positive bar duration.");
   let estimated = 0;
   let untyped = 0;
   const sections: Section[] = [];
@@ -217,9 +272,11 @@ export function fromAnnotation(text: string, opts: Options): ImportResult {
       role = "interlude";
       untyped++;
     }
-    // Consecutive lines of one section can repeat its function (e.g. "B, verse" twice for a long verse).
+    if (!Number.isFinite(bars) || !Number.isInteger(bars) || bars < 1)
+      throw new Error("Section bar counts must be finite positive integers.");
+    if (bars > 64) notes.push(`Section ${i + 1} (${role}) was clipped from ${bars} to 64 bars.`);
     const section: Section = { role, bars: Math.min(64, bars), intentional: false };
-    if (p.chords.some((c) => /[A-G]/.test(c))) section.chords = p.chords.slice(0, section.bars);
+    if (p.chords.length) section.chords = p.chords.slice(0, section.bars);
     sections.push(section);
   });
 

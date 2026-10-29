@@ -1,3 +1,17 @@
+/**
+ * Audio playback engine for compose-balance: manages Web Audio and sampled instrument playback.
+ *
+ * ## Architecture
+ * - Dual Mode Playback:
+ *   - "synth": Low-latency synthetic Web Audio oscillators (sine/triangle waves for chords, noise/clicks for accents).
+ *   - "band": Multi-part soundfont instrument playback (piano/chords, bass, drums, pad) using `smplr`.
+ * - Clock & Scheduling:
+ *   - Uses an ahead-of-time lookahead window (`LOOKAHEAD = 0.4s`) to ensure jitter-free Web Audio time scheduling.
+ *   - Meter-aware: handles simple meters (`4/4`), compound meters (`6/8`, `12/8`), and additive meters (`2+2+3/8`).
+ * - Chord Voicing:
+ *   - Plays actual chords when present (parsed from Harte notation in Billboard files), or falls back to
+ *     canonical role loops (e.g. verse vs. chorus chord cadences). Preserves rests (`N`) and holds (`.`).
+ */
 import type { Options, Section } from "../core/types.ts";
 import { secondsFor } from "../core/stats.ts";
 import type { Band } from "./band.ts";
@@ -31,7 +45,7 @@ function barsOf(sections: Section[]): Bar[] {
       let chords: ChordSpan[];
       if (real !== undefined) {
         const timed = barChords(real, carried);
-        carried = timed.at(-1)?.chord ?? carried;
+        if (timed.length) carried = timed.at(-1)!.chord;
         chords = timed.map(({ chord, at, length }) => ({ notes: chord ? harteNotes(chord) : null, at, length }));
       } else chords = [{ notes: CHORDS[LOOPS[section.role][b % 4]!]!, at: 0, length: 1 }];
       bars.push({ section, b, lastSection: i === sections.length - 1, chords });
@@ -50,6 +64,9 @@ export class Player {
   private raf = 0;
   /** Bumped by every play and stop, so a play still waiting on samples knows it was cancelled. */
   private run = 0;
+  private finish: (() => void) | null = null;
+  private voices = new Set<OscillatorNode>();
+  private gains = new Set<GainNode>();
 
   get playing(): boolean {
     return this.bus !== null;
@@ -58,7 +75,8 @@ export class Player {
   /**
    * Plays the form from `fromBar`. onBar receives the absolute bar number, or -1 when
    * playback ends. With the band, the first play waits for its samples (onLoading);
-   * if they can't load, it plays the synth instead.
+   * if they can't load, it plays the synth instead. Settles when stopped/finished;
+   * scheduling failures reject after cleaning up this run.
    */
   async play(
     sections: Section[],
@@ -73,68 +91,99 @@ export class Player {
   ): Promise<void> {
     this.stop();
     const run = this.run;
-    // One context for the session: the band's samples are decoded into it.
-    const ctx = (this.ctx ??= new AudioContext());
-    if (!this.master) {
-      this.master = ctx.createGain();
-      this.master.gain.value = 0.6;
-      this.master.connect(ctx.destination);
-    }
-    const master = this.master;
-    void ctx.resume();
-
-    let band: Band | null = null;
-    if (sound === "band") {
-      onLoading(true);
-      // The sampler library loads with the samples, so the page itself stays light.
-      band = await import("./band.ts").then(({ loadBand }) => loadBand(ctx, master, choice)).catch(() => null);
-      onLoading(false);
-      if (run !== this.run) return; // stopped, or played again, while the samples loaded
-    }
-    this.band = band;
-    const bus = ctx.createGain();
-    bus.connect(master);
-    this.bus = bus;
-
-    const barDur = secondsFor(1, opts);
-    const bars = barsOf(sections);
-    const padStyle = instrument(choice.pad)?.pad;
-    const t0 = ctx.currentTime + 0.1;
-    let next = fromBar;
-
-    const schedule = () => {
-      while (next < bars.length && t0 + (next - fromBar) * barDur < ctx.currentTime + LOOKAHEAD) {
-        const start = t0 + (next - fromBar) * barDur;
-        if (band) this.bandBar(band, bars[next]!, opts, start, barDur, padStyle);
-        else this.synthBar(ctx, bus, bars[next]!, opts, start, barDur);
-        next++;
+    try {
+      // One context for the session: the band's samples are decoded into it.
+      const ctx = (this.ctx ??= new AudioContext());
+      if (!this.master) {
+        this.master = ctx.createGain();
+        this.master.gain.value = 0.6;
+        this.master.connect(ctx.destination);
       }
-    };
-    schedule();
-    this.timer = window.setInterval(schedule, 50);
-
-    const tick = () => {
+      const master = this.master;
+      await ctx.resume();
       if (run !== this.run) return;
-      const current = fromBar + Math.floor((ctx.currentTime - t0) / barDur);
-      if (current >= bars.length) {
-        this.stop();
-        onBar(-1);
-        return;
+
+      let band: Band | null = null;
+      if (sound === "band") {
+        onLoading(true);
+        // The sampler library loads with the samples, so the page itself stays light.
+        band = await import("./band.ts").then(({ loadBand }) => loadBand(ctx, master, choice)).catch(() => null);
+        onLoading(false);
+        if (run !== this.run) return; // stopped, or played again, while the samples loaded
       }
-      onBar(Math.max(fromBar, current));
-      this.raf = requestAnimationFrame(tick);
-    };
-    this.raf = requestAnimationFrame(tick);
+      this.band = band;
+      const bus = ctx.createGain();
+      this.bus = bus;
+      bus.connect(master);
+
+      const barDur = secondsFor(1, opts);
+      const bars = barsOf(sections);
+      const padStyle = instrument(choice.pad)?.pad;
+      const t0 = ctx.currentTime + 0.1;
+      let next = fromBar;
+
+      const schedule = () => {
+        while (next < bars.length && t0 + (next - fromBar) * barDur < ctx.currentTime + LOOKAHEAD) {
+          const start = t0 + (next - fromBar) * barDur;
+          if (band) this.bandBar(band, bars[next]!, opts, start, barDur, padStyle);
+          else this.synthBar(ctx, bus, bars[next]!, opts, start, barDur);
+          next++;
+        }
+      };
+      await new Promise<void>((resolve, reject) => {
+        this.finish = resolve;
+        const guarded = (action: () => void) => () => {
+          if (run !== this.run) return;
+          try {
+            action();
+          } catch (error) {
+            // Reject before cleanup settles the run, including failures on later ticks.
+            reject(error);
+            this.stop();
+          }
+        };
+        const tick = guarded(() => {
+          const current = fromBar + Math.floor((ctx.currentTime - t0) / barDur);
+          if (current >= bars.length) {
+            onBar(-1);
+            this.stop();
+            return;
+          }
+          onBar(Math.max(fromBar, current));
+          this.raf = requestAnimationFrame(tick);
+        });
+        try {
+          schedule();
+          this.timer = window.setInterval(guarded(schedule), 50);
+          this.raf = requestAnimationFrame(tick);
+        } catch (error) {
+          reject(error);
+          this.stop();
+        }
+      });
+    } catch (error) {
+      if (run === this.run) this.stop();
+      throw error;
+    }
   }
 
   stop(): void {
     this.run++;
     clearInterval(this.timer);
     cancelAnimationFrame(this.raf);
+    for (const osc of this.voices) {
+      try { osc.stop(); } catch { /* It may not have started before scheduling failed. */ }
+      osc.disconnect();
+    }
+    this.voices.clear();
+    for (const gain of this.gains) gain.disconnect();
+    this.gains.clear();
     this.bus?.disconnect();
     this.bus = null;
     if (this.band) for (const voice of [this.band.keys, this.band.bass, this.band.drums, this.band.pad]) voice?.stop();
     this.band = null;
+    this.finish?.();
+    this.finish = null;
   }
 
   private bandBar(band: Band, bar: Bar, opts: Options, start: number, barDur: number, pad?: "sustain" | "accent"): void {
@@ -171,6 +220,8 @@ export class Player {
 
   private chord(ctx: AudioContext, out: AudioNode, notes: number[], start: number, dur: number): void {
     const gain = ctx.createGain();
+    this.gains.add(gain);
+    let remaining = notes.length + 1;
     gain.gain.setValueAtTime(0, start);
     gain.gain.linearRampToValueAtTime(0.08, start + 0.02);
     gain.gain.setTargetAtTime(0.04, start + 0.05, 0.3);
@@ -179,6 +230,12 @@ export class Player {
     // notes[0] is the bass: the root, or an inversion's lowest note.
     for (const n of [notes[0]! - 24, ...notes]) {
       const osc = ctx.createOscillator();
+      this.voices.add(osc);
+      osc.onended = () => {
+        osc.disconnect();
+        this.voices.delete(osc);
+        if (--remaining === 0) { gain.disconnect(); this.gains.delete(gain); }
+      };
       osc.type = n < notes[0]! ? "sine" : "triangle";
       osc.frequency.value = hz(n);
       osc.connect(gain);
@@ -190,7 +247,15 @@ export class Player {
   /** accent: 2 = section start, 1 = start of a 4-bar phrase, 0.5 = downbeat, 0.25 = start of a beat group (beat 4 of 6/8), 0 = other beats. */
   private click(ctx: AudioContext, out: AudioNode, at: number, accent: number): void {
     const osc = ctx.createOscillator();
+    this.voices.add(osc);
     const gain = ctx.createGain();
+    this.gains.add(gain);
+    osc.onended = () => {
+      osc.disconnect();
+      gain.disconnect();
+      this.voices.delete(osc);
+      this.gains.delete(gain);
+    };
     osc.frequency.value = accent === 2 ? 1760 : accent === 1 ? 1320 : accent === 0.5 ? 1000 : accent === 0.25 ? 900 : 800;
     const peak = accent === 2 ? 0.5 : accent === 1 ? 0.35 : accent === 0.5 ? 0.22 : accent === 0.25 ? 0.16 : 0.1;
     gain.gain.setValueAtTime(peak, at);

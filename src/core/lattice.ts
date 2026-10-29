@@ -2,13 +2,22 @@
  * The shape table as `<lattice-board>` pieces: the song laid out on the kit's own lattice, and the
  * song read back from whatever the board's pieces have become.
  *
- * Every bar is a shape made of the lattice's triangles: a bridge bar is one triangle, a verse two
- * (a rhombus), a pre-chorus three (a trapezoid), a chorus six (the whole cell), an intro four as a
- * big triangle and an outro four as a long rhombus. A section is the parts of one colour (`tone`) in a board piece
- * that touch, so its bars are its triangles over its bar's size; a change that would leave part of
- * a bar is refused. Pieces of the same colour side by side stay separate sections until glued (G).
+ * ## Geometric Coordinate Model
+ * - Coordinates are the kit's: pixels at `scale` 1, a cell 76.21px across and rows 66px apart.
+ * - Triangles (`Tri`): The fundamental building block of the board lattice.
+ * - Bar Representation by Section Role:
+ *   - Bridge: 1 triangle
+ *   - Verse / Post-chorus: 2 triangles (rhombus / diamond)
+ *   - Pre-chorus: 3 triangles (trapezoid / half-hexagon)
+ *   - Intro / Outro: 4 triangles (large triangle or elongated rhombus)
+ *   - Chorus / Solo: 6 triangles (a full regular hexagon cell)
  *
- * Coordinates are the kit's: pixels at `scale` 1, a cell 76.21 across and rows 66 apart.
+ * ## Shape Construction & Provenance
+ * - `convexShape`: Constructs compact, symmetric convex polygons on the triangular lattice.
+ * - Provenance: Each piece carries explicit provenance tracking across shears, splits,
+ *   merges, and glues to prevent semantic identity or role corruption when pieces are transformed.
+ * - Whole-bar Invariant: Any board mutation that leaves a fraction of a bar is rejected via
+ *   the board's cancelable `change` event.
  */
 import {
   type Area,
@@ -80,6 +89,12 @@ export interface Layout {
   pieces: Piece[];
   roles: Record<string, Role>;
 }
+
+/** Explicit source-bar indices for semantic splits whose refitted geometry loses ownership. */
+export const layoutBarSources = new WeakMap<Layout, {
+  before: Layout;
+  sources: { pieceId: string; sourcePieceId: string; role: Role; bars: number[] }[];
+}>();
 
 export const EMPTY: Layout = { pieces: [], roles: {} };
 
@@ -477,6 +492,12 @@ function laidOut(role: Role, bars: number, at: Hex): Part[][] {
 /** A section's parts in its canonical layout from cell `at` (see `barsParts`). */
 export const sectionParts = (role: Role, bars: number, at: Hex): Part[] => barsParts(role, bars, at).flat();
 
+/**
+ * How far right a section reaches when `flow` starts a row with it, in pixels at scale 1: laid out
+ * on an odd row, which starts half a cell in, so it holds on either.
+ */
+export const reachOf = (role: Role, bars: number): number => boxOfTris(sectionParts(role, bars, { q: 0, r: 1 }).flatMap(trisOfPart)).right;
+
 
 // ---- Reading the song back
 
@@ -647,8 +668,10 @@ export function flow(sections: Section[], width: number): Layout {
     const id = newPieceId();
     pieces.push(pieceOf(id, parts));
     if (TONE[s.role] === SHARED) roles[id] = s.role;
-    // The section's lowest row of cells, as laid out (a long one has two phrases to a row).
-    const lowest = Math.max(...parts.map((x) => (x.kind === "cell" ? x.at.r : hexAt(triMid(x.at).x, triMid(x.at).y).r)));
+    // The section's lowest row of cells once its last phrase is finished (a long one has two
+    // phrases to a row), so the next row leaves its ghost room to show.
+    const finished = sectionParts(s.role, Math.ceil(s.bars / PER_ROW) * PER_ROW, { q, r });
+    const lowest = Math.max(...finished.map((x) => (x.kind === "cell" ? x.at.r : hexAt(triMid(x.at).x, triMid(x.at).y).r)));
     rowBottom = Math.max(rowBottom, lowest);
     // The next section starts a cell clear of this one's right edge, on this row.
     q = Math.ceil(box.right / CELL_W - r / 2 + 1e-6) + 1;
@@ -813,6 +836,13 @@ export function pullBar(before: Layout, after: Piece[], pulledId: string, width:
     const roles = { ...before.roles };
     if (roles[source.id]) for (const p of [piece, ...left.slice(1)]) roles[p.id] = roles[source.id]!;
     const next: Layout = { pieces: [...others, ...left, piece], roles };
+    const sourceBars = barPartsOf(section).map((parts) => new Set(parts.flatMap(trisOfPart).map(triKey)));
+    const sources = [piece, ...left].map((fragment) => {
+      const fragmentKeys = new Set(fragment.parts.flatMap(trisOfPart).map((t) => triKey(fragment === piece ? { ...t, i: t.i - step.i, j: t.j - step.j } : t)));
+      return { pieceId: fragment.id, sourcePieceId: section.pieceId, role: section.role,
+        bars: sourceBars.flatMap((keys, index) => [...keys].some((key) => fragmentKeys.has(key)) ? [index] : []) };
+    });
+    layoutBarSources.set(next, { before, sources });
     return songOf(next).whole ? next : null;
   };
   /** How many pieces the section is left in: one is best (it stays one section). */
@@ -850,7 +880,10 @@ export function pullBar(before: Layout, after: Piece[], pulledId: string, width:
   if (!best) return null;
   // What stays behind laid out again where it stands, in its proper shape (an intro of 3 a big
   // trapezoid, not the L a bar out of its middle would leave).
-  return tidy ? tidySection(best.next, source.id, tone, width) : best.next;
+  const result = tidy ? tidySection(best.next, source.id, tone, width) : best.next;
+  const provenance = layoutBarSources.get(best.next);
+  if (provenance) layoutBarSources.set(result, provenance);
+  return result;
 }
 
 /**
@@ -927,7 +960,16 @@ export function pullOneBar(layout: Layout, index: number, width: number): Layout
   if (!bar) return null;
   const roles = { ...shorter.roles };
   if (TONE[s.role] === SHARED) roles[bar.id] = s.role;
-  return { pieces: [...shorter.pieces, bar], roles };
+  const result = { pieces: [...shorter.pieces, bar], roles };
+  const bars = Math.round(s.bars);
+  layoutBarSources.set(result, {
+    before: layout,
+    sources: [
+      { pieceId: s.pieceId, sourcePieceId: s.pieceId, role: s.role, bars: Array.from({ length: bars - 1 }, (_, i) => i) },
+      { pieceId: bar.id, sourcePieceId: s.pieceId, role: s.role, bars: [bars - 1] },
+    ],
+  });
+  return result;
 }
 
 /** The triangle keys of a piece, sorted: to tell whether a piece ended where it started. */
@@ -982,16 +1024,51 @@ export function cutThrough(stroke: Pt[], s: BoardSection): boolean {
 }
 
 /**
- * The white sections' types carried over a change the board made: a piece that kept its id keeps
- * its type; a new piece (glued, broken, pulled apart) takes the type of a white piece that went.
+ * Preserve exact white-section IDs when all originals survive with unchanged triangle counts:
+ * moves/refits may occupy another role's old location. Otherwise use triangle ownership,
+ * including retained IDs, to detect mixed-role glue. Without either clue, only an unambiguous
+ * disappeared role is inherited. A piece cannot represent different white roles: reject that
+ * glue rather than reinterpret its triangles with the wrong bar size.
  */
 export function carryRoles(before: Layout, pieces: Piece[]): Record<string, Role> {
   const roles: Record<string, Role> = {};
   const ids = new Set(pieces.map((p) => p.id));
-  const gone = Object.entries(before.roles).filter(([id]) => !ids.has(id)).map(([, role]) => role);
+  const originals = new Map<string, Role>();
+  const owners = new Map<string, Set<Role>>();
+  for (const p of before.pieces) {
+    const shared = p.parts.filter((part) => part.tone === SHARED);
+    if (!shared.length) continue;
+    const role = before.roles[p.id] ?? "instrumental";
+    originals.set(p.id, role);
+    for (const key of shared.flatMap(trisOfPart).map(triKey)) {
+      const at = owners.get(key) ?? new Set<Role>();
+      at.add(role);
+      owners.set(key, at);
+    }
+  }
+  const nextById = new Map(pieces.map((p) => [p.id, p]));
+  const unchangedTopology = before.pieces.filter((p) => originals.has(p.id)).every((p) => {
+    const next = nextById.get(p.id);
+    return next !== undefined && covered(next).length === covered(p).length;
+  });
+  const gone = new Set([...originals].filter(([id]) => !ids.has(id)).map(([, role]) => role));
+  const fallback = gone.size === 1 ? gone.values().next().value! : "instrumental";
   for (const p of pieces) {
-    if (!p.parts.some((x) => x.tone === SHARED)) continue;
-    roles[p.id] = before.roles[p.id] ?? gone[0] ?? "instrumental";
+    const shared = p.parts.filter((part) => part.tone === SHARED);
+    if (!shared.length) continue;
+    const sources = new Set<Role>();
+    const exact = originals.get(p.id);
+    if (exact && unchangedTopology) {
+      roles[p.id] = exact;
+      continue;
+    }
+    if (exact) sources.add(exact);
+    for (const key of shared.flatMap(trisOfPart).map(triKey))
+      for (const role of owners.get(key) ?? []) sources.add(role);
+    if (sources.size > 1) throw new Error("Cannot combine different shared-color roles in one piece.");
+    if (sources.size === 0 && gone.size > 1)
+      throw new Error("Cannot determine the source role of this shared-color piece.");
+    roles[p.id] = sources.values().next().value ?? fallback;
   }
   return roles;
 }

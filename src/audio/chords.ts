@@ -78,7 +78,7 @@ export function harteNotes(chord: string): number[] | null {
   const pc = (PITCH[m[1]!]! + [...m[2]!].reduce((n, c) => n + (c === "#" ? 1 : -1), 0) + 12) % 12;
   const root = 55 + ((pc - 7 + 12) % 12);
   // A bare root ("C") is a major triad; a shorthand-free list ("C:(1,3,5)") lists every note.
-  const intervals = new Set(m[3] ? (SHORTHAND[m[3]] ?? SHORTHAND.maj!) : m[4] !== undefined ? [] : SHORTHAND.maj!);
+  const intervals = new Set(m[3] ? (Object.hasOwn(SHORTHAND, m[3]) ? SHORTHAND[m[3]]! : SHORTHAND.maj!) : m[4] !== undefined ? [] : SHORTHAND.maj!);
   for (const item of (m[4] ?? "").split(",").map((x) => x.trim()).filter(Boolean)) {
     const d = degree(item.replace(/^\*/, ""));
     if (d === undefined) continue;

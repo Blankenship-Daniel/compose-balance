@@ -188,8 +188,8 @@ kbd {
 
 @media (min-width: 641px) and (min-height: 501px) {
   .masthead {
-    flex-wrap: wrap;
-    align-items: flex-end;
+    flex-wrap: nowrap;
+    align-items: center;
     gap: 16px;
     padding-bottom: 14px;
   }
@@ -239,23 +239,33 @@ h1 {
   margin-right: 6px;
 }
 
-/* One line on a phone, however long, so the masthead keeps its height as the verdict changes. */
+/* The rank. On a phone it sits in the toolbar's row instead, beside Tools and the menu (up to two
+   lines there), so the masthead is a line shorter. */
 .verdict-rank {
+  display: none;
   color: var(--ink-soft);
   font-size: 0.9rem;
   min-width: 0;
-  max-width: 100%;
+}
+
+.toolbar-rank {
+  flex: 1;
+  min-width: 0;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 @media (min-width: 641px) and (min-height: 501px) {
+  /* The word, and under it the counts and the rank: the result, at reading size. */
   .verdict {
-    gap: 14px;
+    gap: 6px 16px;
   }
   .verdict-word {
-    flex-basis: auto;
     font-size: 3rem;
   }
   .verdict-counts,
@@ -264,8 +274,26 @@ h1 {
     font-size: 1rem;
   }
   .verdict-rank {
-    white-space: normal;
+    display: inline;
   }
+}
+
+/* The era picker, ending the rank's sentence: its words in the sentence's type, a caret after
+   them and the counts' own underline, so it reads as part of the line and still as a choice. */
+.verdict-rank .era {
+  appearance: none;
+  font: inherit;
+  color: var(--ink);
+  padding: 0 1.1em 0 0;
+  border: none;
+  border-bottom: 1px solid var(--staff);
+  border-radius: 0;
+  background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23888' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 0.15em center / 0.65em;
+  cursor: pointer;
+}
+
+.verdict-rank .era:hover {
+  border-bottom-color: var(--ink);
 }
 
 .verdict-balanced .verdict-word {
@@ -331,17 +359,39 @@ h1 {
 
 /* The sheet's way out, last, under the thumb: a phone's only. */
 .tools-done {
-  order: 2;
-  margin-left: auto;
+  order: 4;
 }
 
 .toolbar-tools > * {
   flex: none;
 }
 
+/* The sheet in three groups, as the wide toolbar has them: listen (tempo, time signature, sound),
+   then edit (Shears, Text, Tidy up), then the comparison beside Done, a rule between each. */
+.toolbar-tools .shears-toggle,
+.toolbar-tools .type-toggle,
+.toolbar-tools .toolbar-tidy {
+  order: 2;
+}
+
+@media not all and (min-width: 641px) and (min-height: 501px) {
+  .toolbar-tools::before,
+  .toolbar-tools::after {
+    content: "";
+    flex: 1 1 100%;
+    border-top: 1px solid var(--staff);
+  }
+  .toolbar-tools::before {
+    order: 1;
+  }
+  .toolbar-tools::after {
+    order: 3;
+  }
+}
+
 .toolbar-tools .era {
-  order: 1;
-  flex: 1 1 100%;
+  order: 4;
+  flex: 1 1 0;
   min-width: 0;
 }
 
@@ -351,32 +401,25 @@ h1 {
   padding-right: 10px;
 }
 
-/* Wider: everything in the row, the tools between the time and Undo. Where they don't fit on
-   one line (a tablet, a phone on its side), they wrap within their own group. */
+/* Wider: everything in one row, the tools' own items in it beside the transport's. Where they
+   don't fit on one line (a tablet), the edit and view groups wrap onto a second, to the right. */
 @media (min-width: 641px) and (min-height: 501px) {
   .toolbar-row {
-    flex-wrap: nowrap;
     gap: 8px;
   }
   .toolbar-tools,
   .toolbar.tools-open .toolbar-tools {
-    display: flex;
-    position: static;
-    z-index: auto;
-    flex: 1 1 0;
-    max-height: none;
-    overflow: visible;
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 0;
-    background: none;
-    border: none;
-    box-shadow: none;
+    display: contents;
   }
   /* The setting and view tools keep to the right of the tempo and time signature. */
-  .toolbar-tools .era {
-    order: 0;
-    flex: none;
+  /* Three groups: listen (the transport, tempo, time signature and sound) on the left; edit
+     (Shears, Text, Undo) and view (Table or Chart, the menu) on the right, a wider gap between. */
+  .toolbar {
+    border-top: none;
+    border-bottom: 2px solid var(--ink);
+  }
+  /* The edit group keeps the sheet's order (2); Undo, the view and the menu follow it. */
+  .toolbar-tools .shears-toggle {
     margin-left: auto;
   }
   .tools-toggle,
@@ -387,6 +430,15 @@ h1 {
 }
 
 /* A switched-on toggle is underlined, not filled: a solid fill belongs to Play alone. */
+/* Too narrow for one line (a tablet): edit and view wrap together, under listen, to the right. */
+@media (min-width: 641px) and (max-width: 959px) and (min-height: 501px) {
+  .toolbar-row::before {
+    content: "";
+    order: 2;
+    flex-basis: 100%;
+  }
+}
+
 .tools-toggle[aria-expanded="true"],
 .type-toggle[aria-pressed="true"],
 .shears-toggle[aria-pressed="true"] {
@@ -528,7 +580,9 @@ h1 {
 }
 
 .tempo-unit {
-  display: none;
+  padding-right: 8px;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
 }
 
 /* Typed time signature with suggestions: any meter, like 7/8 or 2+2+3/8. */
@@ -540,6 +594,44 @@ h1 {
   padding: 6px 4px;
 }
 
+/* The suggestions' arrow shows while the field is being edited; at rest it would only widen it.
+   (Chrome's own sheet sets its display as important.) */
+.meter:not(:focus)::-webkit-calendar-picker-indicator {
+  display: none !important;
+}
+
+/* On a phone the field is a box like the tempo's, named after its value: "4/4 time". */
+.meter-field {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  border: 1px solid var(--staff);
+  border-radius: 4px;
+  background: var(--sheet);
+}
+
+.meter-field:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.meter-field:has(.meter[aria-invalid="true"]) {
+  border-color: var(--red);
+}
+
+.meter-field .meter {
+  width: 48px;
+  border: none;
+  background: transparent;
+  outline: none;
+}
+
+.meter-unit {
+  padding-right: 8px;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+
 @media (min-width: 641px) and (min-height: 501px) {
   .tempo {
     min-height: 0;
@@ -549,11 +641,36 @@ h1 {
     padding-left: 8px;
   }
   .tempo-unit {
-    display: inline;
+    padding-right: 0;
   }
-  .meter {
+  /* Wider, the field is its own box again, its name in the tooltip. */
+  .meter-field {
+    display: contents;
+  }
+  .meter-unit {
+    display: none;
+  }
+  .meter-field .meter {
+    border: 1px solid var(--staff);
+    background: var(--sheet);
+  }
+  .meter-field .meter:focus-visible {
+    outline: 2px solid var(--focus);
+  }
+  .meter-field .meter[aria-invalid="true"] {
+    border-color: var(--red);
+  }
+  .meter-field .meter {
     width: 76px;
     min-height: 0;
+  }
+  @supports (field-sizing: content) {
+    .meter-field .meter {
+      width: auto;
+      min-width: 3ch;
+      field-sizing: content;
+      padding-inline: 8px;
+    }
   }
 }
 
@@ -595,14 +712,15 @@ h1 {
   .transport .duration {
     margin-right: 0;
   }
-  .transport .view-switch {
-    order: 1;
-  }
   .transport .undo {
-    order: 2;
+    order: 3;
+  }
+  .transport .view-switch {
+    order: 4;
+    margin-left: 12px;
   }
   .toolbar-row > .menu {
-    order: 3;
+    order: 5;
   }
 }
 
@@ -666,14 +784,16 @@ button.verdict-line-counts {
   display: none;
 }
 
-/* Undo is an arrow on a phone, a word beside it. */
+/* Undo is an arrow, named by its label and its tooltip: drawn large enough to read as one. */
 .undo {
   padding-left: 8px;
   padding-right: 8px;
 }
 
-.undo-label {
-  display: none;
+.undo > span {
+  display: inline-block;
+  font-size: 1.35rem;
+  line-height: 1;
 }
 
 /* Elapsed and total fit the row from the larger phones up. */
@@ -688,19 +808,9 @@ button.verdict-line-counts {
     font-size: 1.2rem;
     padding: 0 4px;
   }
-  .undo {
-    padding-left: 12px;
-    padding-right: 12px;
-  }
   .menu-button {
     padding-left: 10px;
     padding-right: 10px;
-  }
-  .undo-icon {
-    display: none;
-  }
-  .undo-label {
-    display: inline;
   }
 }
 
@@ -1583,9 +1693,11 @@ lattice-icon {
   pointer-events: none;
 }
 
+/* A white section's edge in its type's colour: lighter and thinner than a flag's outline, so the
+   coral of a hollow trapezoid (an instrumental) never reads as a problem. */
 .section-outline.is-hollow {
-  stroke: var(--c);
-  stroke-width: 2.5px;
+  stroke: color-mix(in srgb, var(--c) 80%, var(--paper));
+  stroke-width: 1.75px;
 }
 
 .section-outline.flag-warning {
@@ -1594,6 +1706,10 @@ lattice-icon {
 
 .section-outline.flag-problem {
   stroke: var(--red);
+}
+
+.section-outline.is-hollow:is(.flag-warning, .flag-problem) {
+  stroke-width: 2.5px;
 }
 
 /* Picked or pointed to: its own outline, thicker, and lifted a little off the board. */
@@ -1803,6 +1919,13 @@ lattice-icon {
   z-index: 1;
   border-color: var(--ink);
   box-shadow: inset 0 -3px 0 var(--ink);
+}
+
+/* The view not showing recedes into the page, so the one showing reads at a glance (a solid fill
+   stays Play's alone). */
+.view-switch button[aria-pressed="false"] {
+  background: transparent;
+  color: var(--ink-soft);
 }
 
 /* The thread: how each section hands over to the next, in song order. Strong enough to follow

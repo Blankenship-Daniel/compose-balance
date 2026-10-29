@@ -2,9 +2,16 @@
 
 A sandbox for sketching song forms and checking whether they're balanced. Type a form, see it as 4-bar phrases, hear it with a click and chords, and get findings with reasons and one-click fixes.
 
-```
-npm install
+Use **Node.js 26.4.0** (the tested runtime) and its bundled npm. The maintenance scripts below use Node's built-in TypeScript support and `import.meta.main`; older Node releases may run the app tools but not all maintenance scripts.
+
+```bash
+npm ci
+npx playwright install chromium  # once, before running browser tests
 npm run dev        # http://localhost:5173
+npm test           # run unit tests (vitest)
+npm run typecheck  # check types (tsc --noEmit)
+npm run build      # typecheck + production build (vite build)
+npm run e2e        # end-to-end browser tests (playwright test)
 ```
 
 ## Notation
@@ -15,8 +22,10 @@ Quick entry with **Text**:
 
 ```
 In4 Vs8 Pre4 Ch8 Vs8 Pre4 Ch8 Br8 Ch8 Out4
-intro4 verse8 pre-chorus4 chorus8 bridge8 outro4   # same thing, in SALAMI labels
+intro4 verse8 pre-chorus4 chorus8 bridge8 outro4
 ```
+
+The second line uses full SALAMI labels for the same form. Paste one line at a time; quick entry does not support `#` comments.
 
 Codes are short words, never single capitals, so a form can't be misread as chords (C, B) or Roman numerals (I, V). Older single-letter codes (`I4 V8 C8`) still work and are rewritten to the new codes.
 
@@ -43,7 +52,10 @@ Codes are short words, never single capitals, so a form can't be misread as chor
 
 - **Export:** writes the form in the McGill Billboard format, with a header, one line per 4-bar phrase, and barlines.
 - **Import:** reads Billboard files, counting bars from the barlines, and plain SALAMI files, estimating bars from timestamps at the current tempo.
-- **Not kept on import:** the song's real chords and title. The chart uses its own chord loop for each section type.
+- **Chords:** imported bar chords, explicit rests, and holds are preserved. Bars without supplied chords use the section type’s placeholder loop. Titles are reported by the parser but are not part of the editable form.
+- **Safety limits:** annotation files are limited to 1 MiB, with bounded repeat expansion, line counts and chord tokens. Invalid or nonchronological timestamps reject the import without replacing the current form. Sections above 64 bars are clipped with an explicit warning.
+- **Documents:** the editor supports up to 256 sections and 4096 bars. Shared links preserve actual chord lists (including edited/reordered and imported chords), deliberate-length markers, tempo, additive meter and era in a versioned payload. Older notation/song-ID links remain readable. Changing the hash on an open page loads the new document.
+- **Board edits:** spatial moves preserve semantic metadata. Operations with ambiguous shared-color roles are refused rather than silently changing section roles or duration.
 
 ## What it checks
 
@@ -55,7 +67,7 @@ Codes are short words, never single capitals, so a form can't be misread as chor
 | R8 | Long intro; seconds to first chorus at your tempo, against when the era's hits reach it (note past 3 in 4, warning past 9 in 10) | convention (corpus) |
 | R9 | Chorus appears only once; bridge too early or not resolved; AABA order | convention |
 | R10, R12 | Bridge position against where the era's bridges start; songs longer than 9 in 10 of the era's (notes only) | convention (corpus) |
-| R11 | A hand-off fewer than 1% of Billboard hits make, such as chorus into pre-chorus or ending on a pre-chorus (notes only) | convention (corpus) |
+| R11 | A hand-off fewer than 1% of transitions from that role make in the selected era’s corpus, such as chorus into pre-chorus or ending on a pre-chorus (notes only) | convention (corpus) |
 
 Verdict (beside it, how the song's phrase lengths rank among the era's hits, e.g. "More regular than 35% of modern hits"):
 
@@ -105,12 +117,22 @@ Sources and caveats are in [docs/research.md](docs/research.md).
   - quarter notes in `/4` meters
   - eighth notes in odd `/8` meters (`7/8` at 210 means 210 eighths a minute)
   - dotted quarters in compound meters (`6/8`, `9/8`, `12/8`)
-- **Era:** the toolbar's picker sets which hits the notes compare against: modern (Harmonix Set, mostly 2000s–2010s, the default) or classic (McGill Billboard, 1958–1991). Links that don't name an era use the modern one.
+- **Era:** picked directly in the verdict sentence on desktop / wide screens (e.g., *"More regular than 35% of modern hits"*), or in the toolbar on phones. It sets which hits the notes compare against: modern (Harmonix Set, mostly 2000s–2010s, the default) or classic (McGill Billboard, 1958–1991). Links that don't name an era use the modern one.
 - **Length:** the toolbar shows the song's length at the current tempo and time signature, and elapsed / total while playing.
-- **Play:** press **Play** or Space, or click any bar. **Band** (the default) plays sampled instruments, picked per part in ⋯ → **Instruments** (chords, bass, drums and an optional pad that holds the chords in the fuller sections; about 40 to choose from, from grand pianos and electric guitars to drum machines, acoustic kits, strings and saxophones): each section gets its own groove, from a sparse intro to a full chorus with a crash, and a drum fill leads into the next section. The first play loads the samples (a few seconds; the button says Loading…); if they can't load, it plays the simple sound instead. **Click** plays that simple sound: plain chords and a click on every beat, louder on section starts and 4-bar phrases. The chords are placeholders so you can hear the form, except in a loaded classic hit (or an imported Billboard file), whose bars play the song's real chords. Those chords stay with their sections when you move, resize or retype them; bars you add play placeholders. A link to a loaded hit adds `&song=bb0473` (its Billboard file), so it opens with the real chords too.
+- **Play:** press **Play** or Space, or click any bar. **Band** (the default) plays sampled instruments, picked per part in ⋯ → **Instruments** (chords, bass, drums and an optional pad that holds the chords in the fuller sections; about 40 to choose from, from grand pianos and electric guitars to drum machines, acoustic kits, strings and saxophones): each section gets its own groove, from a sparse intro to a full chorus with a crash, and a drum fill leads into the next section. The first play loads the samples (a few seconds; the button says Loading…); a part that fails to load stays silent, and if no parts load, playback falls back to the simple sound. **Click** plays that simple sound: plain chords and a click on every beat, louder on section starts and 4-bar phrases. The chords are placeholders so you can hear the form, except in a loaded classic hit (or an imported Billboard file), whose bars play the song's real chords. Those chords stay with their sections when you move, resize or retype them; bars you add play placeholders. Shared links keep the actual chord data; see **Sharing and saving** below.
 - **⋯ menu:** examples, **Load a real hit** (search about 1,650 songs from both corpora by title or artist; each loads with its own tempo, time signature and era, and the 739 classic hits play their real chords), import or export (SALAMI / Billboard), and "How this works".
 - **Notes:** these are folded by default. Each note's evidence line expands to show its sources.
-- **Share:** the URL hash holds the form and tempo, plus the song for a loaded classic hit.
+- **Share:** copy the URL to share the current document, including supplied chords and settings. See **Sharing and saving** below.
+
+### Sharing and saving
+
+The URL hash stores notation (`f`), tempo (`bpm`), time signature/grouping (`m`), and a nondefault era (`era`). When any section carries chords, `d` holds a URL-encoded JSON payload `{ "v": 1, "sections": [...] }` with the actual section roles, bar counts, deliberate-length markers and chord lists. In that case `d`, not the display notation, is authoritative. New links do not require a corpus lookup to recover chords.
+
+Older links with `song=bb0473` (or another corpus ID) remain readable: the app looks up the original chords and upgrades the link. That legacy restoration is best-effort for previously edited/reordered forms; new payloads avoid reconstructing chords from role order. Changing a valid hash on an open page replaces the document; invalid structured payloads show an error without replacing it.
+
+The application caps the entire hash at **500,000 characters**, but browsers, messaging apps and link-sharing systems may have much smaller practical limits. The document validator also limits each chord bar to 2,048 characters and 64 whitespace-separated tokens. If a link cannot be saved, the editor reports the error; do not assume the address bar contains the latest edits.
+
+Use **Import or export → Download .txt** as an alternative for oversized links. Annotation export preserves form, supplied chords and additive meter, but is **not a full document backup**: SALAMI cannot represent `!` markers or the era setting, and timestamp-only reimport estimates bar counts at the selected tempo. Keep a separate note of tempo, era and deliberate markers when using this fallback.
 
 ## Look and feel
 
@@ -131,18 +153,32 @@ The UI is built on [`@harmonics/lattice-ui`](https://www.npmjs.com/package/@harm
 
 `src/core/lattice.ts` lays the song out as `<lattice-board>` pieces (`flow`, `sectionParts`), reads the song back from them (`songOf`: sections, bars, reading order, whether every bar is whole), and makes the app's own edits (`withBars` for + and −, ghosts and shears; `dropBar` for the tray; `sync` keeps pieces where they are when only lengths change elsewhere). `src/core/blocks.ts` keeps the shared drawing geometry: a shape's raised side and the thread between sections.
 
-The app uses `@harmonics/lattice-ui` (`^0.11.0`) for its board, face, page background, shears and icons.
+The app uses `@harmonics/lattice-ui` for its board, face, page background, shears and icons. `package.json` defines the supported version range; `package-lock.json` records the npm-resolved version.
 
 ## Development
 
+```bash
+npm run dev        # start local Vite dev server (http://localhost:5173)
+npm test           # unit tests with Vitest (parser, rules, presets, lattice, audio)
+npm run typecheck  # verify TypeScript types without emitting code
+npm run build      # typecheck + bundle production assets with Vite
+npm run e2e        # execute Playwright end-to-end test suite
 ```
-npm test           # vitest: parser, rules, presets
-npm run build      # typecheck + production build
-```
+
+Run `npx playwright install chromium` after installing dependencies on a new machine; Linux CI may also need `npx playwright install --with-deps chromium`. All configured projects use Chromium (desktop, intermediate width, phone, tablet and dark mode); these are viewport/device-emulation checks, not Firefox/WebKit coverage.
+
+Playwright starts its own Vite server on port **5199** and refuses to reuse an existing one. If that port is occupied, run `E2E_PORT=5299 npm run e2e` (POSIX), or set `$env:E2E_PORT = "5299"` before `npm run e2e` in PowerShell. Reports are written to `playwright-report/`, with failure artifacts in `test-results/`.
+
+`npm run typecheck` and the build check application code in `src/`, excluding unit tests; they do not typecheck maintenance scripts or E2E tests. Run the relevant tests as well when changing those areas. The build currently warns about the large, lazy-loaded Billboard catalogue chunk; this is a bundle-size warning, not a failed build.
 
 - **Scoring core:** `src/core/` is the scoring engine, pure TypeScript with no DOM, so a CLI could reuse it.
 - **Thresholds:** they live in `rules/phrase.ts` (role weights, severity cutoffs) and `rules/macro.ts` (time limits).
-- **Corpus:** `node scripts/corpus-stats.ts <dir>` rebuilds `src/core/corpus/billboard.json` and the song list `songs-billboard.json` from a Billboard folder, or `harmonix.json` and `songs-harmonix.json` from the Harmonix Set's `dataset` folder (add `--years <file>` with the output of `python3 scripts/harmonix-years.py <dataset>/metadata.csv <file>` for release years). The Harmonix-derived files are MIT-licensed; see [`src/core/corpus/LICENSE-harmonix.txt`](src/core/corpus/LICENSE-harmonix.txt). `BILLBOARD_DIR=<dir> HARMONIX_DIR=<dir> npm test` also checks the engine against every song in them ([docs/research.md](docs/research.md#corpus-measurements-srccorecorpusts)).
+- **Corpus evaluation:** Setting environment variables runs the full empirical validation test suite against external datasets:
+  ```bash
+  BILLBOARD_DIR=/path/to/McGill-Billboard HARMONIX_DIR=/path/to/harmonixset/dataset npm test
+  ```
+  Without these variables set, the 4 corpus evaluation tests in `corpus-eval.test.ts` are safely skipped.
+- **Corpus generation:** `node scripts/corpus-stats.ts <dir>` rebuilds `src/core/corpus/billboard.json` and the song list `songs-billboard.json` from a Billboard folder, or `harmonix.json` and `songs-harmonix.json` from the Harmonix Set's `dataset` folder (add `--years <file>` with the output of `python3 scripts/harmonix-years.py <dataset>/metadata.csv <file>` for release years). See [scripts/README.md](scripts/README.md) for detailed workflows. The Harmonix-derived files are MIT-licensed; see [`src/core/corpus/LICENSE-harmonix.txt`](src/core/corpus/LICENSE-harmonix.txt). Check [docs/research.md](docs/research.md#corpus-measurements-srccorecorpusts) for research methodology.
 
 ## Credits
 

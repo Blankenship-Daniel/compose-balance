@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { fromAnnotation, toBillboard } from "../core/salami.ts";
+import { fromAnnotation, toBillboard, MAX_ANNOTATION_BYTES } from "../core/salami.ts";
+import { validSections } from "../core/document.ts";
 import type { Meter } from "../core/meter.ts";
 import type { Options, Section } from "../core/types.ts";
 
@@ -22,6 +23,10 @@ export function Exchange({ sections, opts, onImport, onClose }: Props) {
 
   function load(source: string) {
     const result = fromAnnotation(source, opts);
+    if (!validSections(result.sections)) {
+      setNotes(["Import rejected: the annotation exceeds the supported document limits."]);
+      return;
+    }
     setNotes(result.notes);
     if (result.sections.length) {
       onImport(result.sections, result.meter);
@@ -77,9 +82,14 @@ export function Exchange({ sections, opts, onImport, onClose }: Props) {
             type="file"
             accept=".txt,text/plain"
             onChange={async (e) => {
-              const file = e.target.files?.[0];
-              if (file) load(await file.text());
-              e.target.value = "";
+              const input = e.currentTarget;
+              const file = input.files?.[0];
+              try {
+                if (file && file.size > MAX_ANNOTATION_BYTES) setNotes(["This annotation file is too large. Use a file under 1 MB."]);
+                else if (file) load(await file.text());
+              } catch {
+                setNotes(["The file could not be read. Your current form has not changed."]);
+              } finally { input.value = ""; }
             }}
           />
         </label>

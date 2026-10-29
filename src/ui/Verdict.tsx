@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { LatticeFace } from "@harmonics/lattice-ui";
 import type { Report, Verdict as VerdictName } from "../core/types.ts";
+import { useWide } from "./wide.ts";
 
 const MOOD: Record<VerdictName, LatticeFace["mood"]> = {
   Balanced: "happy",
@@ -17,24 +18,29 @@ function counts(report: Report): string {
   return parts.length ? parts.join(", ") : "Nothing to fix";
 }
 
-/** Where the song's phrase lengths rank among the era's hits: "More regular than 72% of modern hits". */
-function gridRank(report: Report): string {
+/**
+ * Where the song's phrase lengths rank among the era's hits: "More regular than 72% of modern hits".
+ * Without the era's name when the sentence ends in the era picker instead.
+ */
+function gridRank(report: Report, named: boolean): string {
   const { era, moreRegularThan, onGrid, onGridShare } = report.grid;
   const pct = (p: number) => `${Math.round(p * 100)}%`;
-  return onGrid
-    ? `Every section on the grid, like ${pct(onGridShare)} of ${era} hits`
-    : `More regular than ${pct(moreRegularThan)} of ${era} hits`;
+  const of = named ? ` of ${era} hits` : " of";
+  return onGrid ? `Every section on the grid, like ${pct(onGridShare)}${of}` : `More regular than ${pct(moreRegularThan)}${of}`;
 }
 
 /** The verdict, worn by the lattice face: it laughs with relief whenever an edit improves it. */
 export function Verdict({
   report,
   empty,
+  eraPicker,
   onOpenNotes,
   onOpenShelf,
 }: {
   report: Report;
   empty: boolean;
+  /** The era picker, to end the rank's sentence with; null to name the era in words. */
+  eraPicker: React.ReactNode;
   onOpenNotes(): void;
   /** Opens the notes that aren't problems: things worth knowing, not fixing. */
   onOpenShelf(): void;
@@ -48,12 +54,14 @@ export function Verdict({
     last.current = rank;
   }, [rank]);
 
+  // Drawn at the size of its box, which is smaller on a phone: larger, it spills over the verdict.
+  const wide = useWide();
   const text = counts(report);
   const notes = report.findings.filter((f) => f.severity === "info").length;
   return (
     <header className="masthead">
       <h1 className="visually-hidden">Form balance</h1>
-      <lattice-face className="verdict-face" mood={empty ? "asleep" : MOOD[report.verdict]} pulse={pulse} size={56} decorative />
+      <lattice-face className="verdict-face" mood={empty ? "asleep" : MOOD[report.verdict]} pulse={pulse} size={wide ? 56 : 44} decorative />
       <div className={`verdict verdict-${report.verdict.replace(" ", "-").toLowerCase()}`} aria-live="polite">
         <span className="verdict-word">{empty ? "Empty" : report.verdict}</span>
         {/* Nothing to fix is the verdict's status, not a way anywhere. */}
@@ -92,12 +100,19 @@ export function Verdict({
             className="verdict-rank"
             title={`Phrase lengths against the ${report.grid.corpus} corpus: how many of its songs are further off the 4-bar grid than this one`}
           >
-            {gridRank(report)}
+            {gridRank(report, !eraPicker)}
+            {eraPicker && <> {eraPicker}</>}
           </span>
         )}
       </div>
     </header>
   );
+}
+
+/** The rank on its own, for a phone's toolbar row: there it has room for two lines. */
+export function VerdictRank({ report, empty }: { report: Report; empty: boolean }) {
+  if (empty) return null;
+  return <span className="toolbar-rank">{gridRank(report, true)}</span>;
 }
 
 /**
